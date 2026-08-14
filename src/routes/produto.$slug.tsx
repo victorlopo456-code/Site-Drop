@@ -28,6 +28,7 @@ import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export const Route = createFileRoute("/produto/$slug")({
   loader: ({ params }: { params: { slug: string } }) => {
@@ -73,6 +74,7 @@ function ProductPage() {
   const navigate = useNavigate();
   const [active, setActive] = useState(0);
   const [qty, setQty] = useState(1);
+  const [buying, setBuying] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const viewedProductId = product?.id;
   useEffect(() => {
@@ -269,14 +271,33 @@ function ProductPage() {
             <Button
               variant="hero"
               size="xl"
-              disabled={soldOut}
-              onClick={() => {
-                add(product, qty, selectedVariant);
-                setOpen(false);
-                navigate({ to: "/checkout" });
+              disabled={soldOut || buying}
+              onClick={async () => {
+                setBuying(true);
+                try {
+                  const supabase = getSupabaseBrowserClient();
+                  const { data } = (await supabase?.auth.getSession()) ?? {
+                    data: { session: null },
+                  };
+
+                  if (!data.session) {
+                    add(product, qty, selectedVariant);
+                    setOpen(false);
+                    toast.info("Entre ou crie sua conta para continuar a compra.");
+                    sessionStorage.setItem("drop-auth-redirect", "/checkout");
+                    await navigate({ to: "/entrar" });
+                    return;
+                  }
+
+                  add(product, qty, selectedVariant);
+                  setOpen(false);
+                  await navigate({ to: "/checkout" });
+                } finally {
+                  setBuying(false);
+                }
               }}
             >
-              {soldOut ? "Esgotado" : "Comprar agora"}
+              {soldOut ? "Esgotado" : buying ? "Verificando…" : "Comprar agora"}
             </Button>
             <Button
               variant="outlineLight"

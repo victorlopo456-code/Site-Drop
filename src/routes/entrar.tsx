@@ -30,33 +30,35 @@ const emailSchema = z.string().trim().email("E-mail inválido").max(255);
 const passSchema = z.string().min(8, "A senha deve ter ao menos 8 caracteres").max(72);
 
 function SocialButtons() {
-  const providers = [
-    { label: "Google", provider: "google" as const },
-    { label: "Facebook", provider: "facebook" as const },
-    { label: "Apple", provider: "apple" as const },
-  ];
+  const [loading, setLoading] = useState(false);
 
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      {providers.map(({ label, provider }) => (
-        <Button
-          key={provider}
-          variant="surface"
-          disabled={!isSupabaseConfigured()}
-          onClick={async () => {
-            const supabase = getSupabaseBrowserClient();
-            if (!supabase) return toast.error("Configure o Supabase primeiro.");
-            const { error } = await supabase.auth.signInWithOAuth({
-              provider,
-              options: { redirectTo: window.location.origin },
-            });
-            if (error) toast.error(error.message);
-          }}
-        >
-          {label}
-        </Button>
-      ))}
-    </div>
+    <Button
+      variant="surface"
+      className="w-full"
+      disabled={!isSupabaseConfigured() || loading}
+      onClick={async () => {
+        const supabase = getSupabaseBrowserClient();
+        if (!supabase) return toast.error("Configure o Supabase primeiro.");
+        const returnPath =
+          sessionStorage.getItem("drop-auth-redirect") === "/checkout" ? "/checkout" : "/";
+        setLoading(true);
+        try {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: `${window.location.origin}${returnPath}` },
+          });
+          if (error) throw error;
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Não foi possível entrar com Google.",
+          );
+          setLoading(false);
+        }
+      }}
+    >
+      {loading ? "Abrindo Google…" : "Continuar com Google"}
+    </Button>
   );
 }
 
@@ -111,7 +113,12 @@ function AuthPage() {
         .eq("id", data.user.id)
         .maybeSingle();
       toast.success("Bem-vindo de volta!");
-      await navigate({ to: profile?.role === "admin" ? "/admin" : "/" });
+      const redirect =
+        sessionStorage.getItem("drop-auth-redirect") === "/checkout" ? "/checkout" : "/";
+      sessionStorage.removeItem("drop-auth-redirect");
+      await navigate({
+        to: profile?.role === "admin" ? "/admin" : redirect,
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha na autenticação.");
     } finally {
