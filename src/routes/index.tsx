@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/site/ProductCard";
 import { useTaxonomy } from "@/lib/taxonomy";
 import { getSiteBenefits, type SiteBenefit } from "@/lib/site-benefits";
 import { useProducts } from "@/lib/store";
+import { getSitePromoBanner } from "@/lib/site-promo-banner";
 
 const benefitIconComponents = {
   truck: Truck,
@@ -16,7 +17,10 @@ const benefitIconComponents = {
 } satisfies Record<SiteBenefit["icon"], typeof Truck>;
 
 export const Route = createFileRoute("/")({
-  loader: () => getSiteBenefits(),
+  loader: async () => {
+    const [benefits, promoBanner] = await Promise.all([getSiteBenefits(), getSitePromoBanner()]);
+    return { benefits, promoBanner };
+  },
   head: () => ({
     meta: [
       { title: "DROP Skate Shop — Skate, Streetwear e Lifestyle Urbano" },
@@ -71,7 +75,7 @@ function Home() {
   const taxonomy = useTaxonomy();
   const categories = taxonomy.categories.filter((category) => category.enabled);
   const brands = taxonomy.brands.filter((brand) => brand.enabled);
-  const benefits = Route.useLoaderData();
+  const { benefits, promoBanner } = Route.useLoaderData();
   const products = useProducts();
   const bestSellers = products.filter((product) => product.tags.includes("mais-vendidos"));
   const news = products.filter((product) => product.tags.includes("lancamentos"));
@@ -198,30 +202,36 @@ function Home() {
       </section>
 
       {/* BANNER PROMO */}
-      <section className="container-drop">
-        <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-surface p-8 md:p-14">
-          <div
-            className="absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-25 blur-3xl"
-            style={{ background: "var(--gradient-ember)" }}
-            aria-hidden
-          />
-          <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">
-            Semana DROP
-          </p>
-          <h2 className="mt-3 max-w-2xl text-3xl uppercase md:text-5xl">
-            Até 30% OFF em setups completos
-          </h2>
-          <p className="mt-3 max-w-lg text-muted-foreground">
-            Monte seu skate com shape, truck, rodas e rolamentos com desconto progressivo. Use o
-            cupom <span className="font-display text-primary">BLACK20</span>.
-          </p>
-          <Button variant="hero" size="lg" className="mt-7" asChild>
-            <Link to="/promocoes">
-              Ver promoções <ArrowRight />
-            </Link>
-          </Button>
-        </div>
-      </section>
+      {promoBanner.enabled && (
+        <section className="container-drop">
+          <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-surface p-8 md:p-14">
+            <div
+              className="absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-25 blur-3xl"
+              style={{ background: "var(--gradient-ember)" }}
+              aria-hidden
+            />
+            <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">
+              {promoBanner.eyebrow}
+            </p>
+            <h2 className="mt-3 max-w-2xl text-3xl uppercase md:text-5xl">{promoBanner.title}</h2>
+            <p className="mt-3 max-w-lg text-muted-foreground">
+              {promoBanner.description}
+              {promoBanner.coupon && (
+                <>
+                  {" "}
+                  Use o cupom{" "}
+                  <span className="font-display text-primary">{promoBanner.coupon}</span>.
+                </>
+              )}
+            </p>
+            <Button variant="hero" size="lg" className="mt-7" asChild>
+              <a href={promoBanner.button_url}>
+                {promoBanner.button_label} <ArrowRight />
+              </a>
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* OFERTAS */}
       <section className="container-drop py-16">

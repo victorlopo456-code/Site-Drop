@@ -68,6 +68,12 @@ import {
   type SiteAnnouncement,
 } from "@/lib/site-announcements";
 import { loadAnalyticsDashboard, type AnalyticsDashboard } from "@/lib/analytics";
+import {
+  defaultSitePromoBanner,
+  getSitePromoBanner,
+  saveSitePromoBanner,
+  type SitePromoBanner,
+} from "@/lib/site-promo-banner";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -107,6 +113,8 @@ function SecureAdminPage() {
   const [savingFooter, setSavingFooter] = useState(false);
   const [announcements, setAnnouncements] = useState<SiteAnnouncement[]>(defaultSiteAnnouncements);
   const [savingAnnouncements, setSavingAnnouncements] = useState(false);
+  const [promoBanner, setPromoBanner] = useState<SitePromoBanner>(defaultSitePromoBanner);
+  const [savingPromoBanner, setSavingPromoBanner] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState("");
   const [mfaEnrollment, setMfaEnrollment] = useState<MfaEnrollment | null>(null);
   const [mfaCode, setMfaCode] = useState("");
@@ -168,19 +176,21 @@ function SecureAdminPage() {
         return;
       }
 
-      const [{ data }, loadedFooter, loadedAnnouncements] = await Promise.all([
+      const [{ data }, loadedFooter, loadedAnnouncements, loadedPromoBanner] = await Promise.all([
         supabase
           .from("site_benefits")
           .select("id,title,description,icon,position,enabled")
           .order("position"),
         loadSiteSettings(),
         loadSiteAnnouncements(),
+        getSitePromoBanner(),
       ]);
       if (!active) return;
       setAccessToken(sessionData.session.access_token);
       if (data?.length) setBenefits(data as SiteBenefit[]);
       setFooterSettings(loadedFooter);
       setAnnouncements(loadedAnnouncements);
+      setPromoBanner(loadedPromoBanner);
       setState("ready");
     })();
 
@@ -251,6 +261,22 @@ function SecureAdminPage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar a faixa.");
     } finally {
       setSavingAnnouncements(false);
+    }
+  };
+
+  const updatePromoBanner = <K extends keyof SitePromoBanner>(key: K, value: SitePromoBanner[K]) =>
+    setPromoBanner((current) => ({ ...current, [key]: value }));
+
+  const savePromoBanner = async () => {
+    setSavingPromoBanner(true);
+    try {
+      const saved = await saveSitePromoBanner({ data: { accessToken, banner: promoBanner } });
+      setPromoBanner(saved);
+      toast.success("Banner promocional atualizado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o banner.");
+    } finally {
+      setSavingPromoBanner(false);
     }
   };
 
@@ -567,6 +593,94 @@ function SecureAdminPage() {
             >
               <Save className="h-4 w-4" />{" "}
               {savingAnnouncements ? "Salvando…" : "Salvar faixa superior"}
+            </Button>
+          </div>
+
+          <div className="mb-10 rounded-lg border border-border bg-card p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl uppercase">Banner promocional da página inicial</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Edite o banner “Semana DROP” exibido perto do final da página inicial.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={promoBanner.enabled}
+                  onCheckedChange={(checked) => updatePromoBanner("enabled", checked)}
+                />
+                Exibir banner
+              </label>
+            </div>
+            <div className="mt-5 grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="promo-eyebrow">Chamada pequena</Label>
+                <Input
+                  id="promo-eyebrow"
+                  maxLength={60}
+                  value={promoBanner.eyebrow}
+                  onChange={(event) => updatePromoBanner("eyebrow", event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="promo-coupon">Cupom</Label>
+                <Input
+                  id="promo-coupon"
+                  maxLength={40}
+                  value={promoBanner.coupon}
+                  onChange={(event) =>
+                    updatePromoBanner("coupon", event.target.value.toUpperCase())
+                  }
+                  placeholder="Deixe vazio para ocultar"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="promo-title">Título</Label>
+                <Input
+                  id="promo-title"
+                  maxLength={120}
+                  value={promoBanner.title}
+                  onChange={(event) => updatePromoBanner("title", event.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="promo-description">Descrição</Label>
+                <Textarea
+                  id="promo-description"
+                  rows={3}
+                  maxLength={300}
+                  value={promoBanner.description}
+                  onChange={(event) => updatePromoBanner("description", event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="promo-button-label">Texto do botão</Label>
+                <Input
+                  id="promo-button-label"
+                  maxLength={60}
+                  value={promoBanner.button_label}
+                  onChange={(event) => updatePromoBanner("button_label", event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="promo-button-url">Destino do botão</Label>
+                <Input
+                  id="promo-button-url"
+                  maxLength={300}
+                  value={promoBanner.button_url}
+                  onChange={(event) => updatePromoBanner("button_url", event.target.value)}
+                  placeholder="/promocoes"
+                />
+              </div>
+            </div>
+            <Button
+              variant="hero"
+              className="mt-5"
+              disabled={savingPromoBanner}
+              onClick={savePromoBanner}
+            >
+              <Save className="h-4 w-4" />{" "}
+              {savingPromoBanner ? "Salvando…" : "Salvar banner promocional"}
             </Button>
           </div>
 
