@@ -84,7 +84,7 @@ function Home() {
   return (
     <>
       {/* HERO */}
-      <section className="relative isolate flex min-h-[78vh] items-center overflow-hidden">
+      <section className="relative isolate flex min-h-[68svh] items-center overflow-hidden sm:min-h-[78vh]">
         <img
           src={heroImg}
           alt="Skatista realizando manobra em bowl urbano à noite"
@@ -97,7 +97,7 @@ function Home() {
           style={{ background: "var(--gradient-hero)" }}
           aria-hidden
         />
-        <div className="container-drop animate-rise py-20">
+        <div className="container-drop animate-rise py-12 sm:py-20">
           <Link
             to="/"
             aria-label="DROP Skate Shop — ir para a página inicial"
@@ -108,20 +108,20 @@ function Home() {
               alt="DROP Skate Shop"
               width={1280}
               height={1280}
-              className="h-40 w-40 rounded-full object-contain md:h-52 md:w-52"
+              className="h-28 w-28 rounded-full object-contain sm:h-40 sm:w-40 md:h-52 md:w-52"
             />
           </Link>
           <p className="font-display text-xs uppercase tracking-[0.4em] text-primary">
             Coleção 2026 · Street & Park
           </p>
-          <h1 className="mt-4 max-w-3xl text-4xl uppercase leading-[0.95] md:text-7xl">
+          <h1 className="mt-4 max-w-3xl text-3xl uppercase leading-[0.98] sm:text-4xl md:text-7xl">
             Seu setup começa <span className="text-gradient-ember">aqui</span>
           </h1>
           <p className="mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
             Shapes, rodas, trucks, tênis e streetwear das marcas que moldaram a cultura do skate.
             Curadoria DROP, entrega rápida e produtos 100% originais.
           </p>
-          <div className="mt-9 flex flex-wrap gap-3">
+          <div className="mt-7 grid gap-3 min-[400px]:flex min-[400px]:flex-wrap sm:mt-9">
             <Button variant="hero" size="xl" asChild>
               <Link to="/produtos" search={{ q: "", cat: "", marca: "" }}>
                 Comprar agora <ArrowRight />
@@ -155,9 +155,9 @@ function Home() {
       </section>
 
       {/* MAIS VENDIDOS */}
-      <section className="container-drop py-16">
+      <section className="container-drop py-10 sm:py-16">
         <SectionHeader eyebrow="Top da loja" title="Os mais vendidos" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
           {bestSellers.slice(0, 8).map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
@@ -192,9 +192,9 @@ function Home() {
       </section>
 
       {/* LANÇAMENTOS */}
-      <section className="container-drop py-16">
+      <section className="container-drop py-10 sm:py-16">
         <SectionHeader eyebrow="Acabou de chegar" title="Lançamentos" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
           {news.slice(0, 4).map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
@@ -204,7 +204,7 @@ function Home() {
       {/* BANNER PROMO */}
       {promoBanner.enabled && (
         <section className="container-drop">
-          <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-surface p-8 md:p-14">
+          <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-surface p-5 sm:p-8 md:p-14">
             <div
               className="absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-25 blur-3xl"
               style={{ background: "var(--gradient-ember)" }}
@@ -213,7 +213,9 @@ function Home() {
             <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">
               {promoBanner.eyebrow}
             </p>
-            <h2 className="mt-3 max-w-2xl text-3xl uppercase md:text-5xl">{promoBanner.title}</h2>
+            <h2 className="mt-3 max-w-2xl text-2xl uppercase sm:text-3xl md:text-5xl">
+              {promoBanner.title}
+            </h2>
             <p className="mt-3 max-w-lg text-muted-foreground">
               {promoBanner.description}
               {promoBanner.coupon && (
@@ -234,9 +236,9 @@ function Home() {
       )}
 
       {/* OFERTAS */}
-      <section className="container-drop py-16">
+      <section className="container-drop py-10 sm:py-16">
         <SectionHeader eyebrow="Preço baixou" title="Promoções" to={{ promo: true }} />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
           {deals.slice(0, 8).map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

@@ -184,7 +184,7 @@ function Checkout() {
   }
 
   return (
-    <div className="container-drop py-12">
+    <div className="container-drop py-7 sm:py-12">
       <h1 className="text-3xl uppercase md:text-4xl">Checkout</h1>
 
       <p className="mt-4 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 p-4 text-sm text-muted-foreground">
@@ -206,9 +206,9 @@ function Checkout() {
         ))}
       </ol>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
+      <div className="mt-6 grid gap-5 sm:mt-8 sm:gap-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
-          <section className="rounded-lg border border-border bg-card p-6">
+          <section className="rounded-lg border border-border bg-card p-4 sm:p-6">
             <h2 className="font-display text-lg uppercase">1. Identificação</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div className="space-y-2 sm:col-span-2">
@@ -244,7 +244,7 @@ function Checkout() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-6">
+          <section className="rounded-lg border border-border bg-card p-4 sm:p-6">
             <h2 className="font-display text-lg uppercase">2. Endereço</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-4">
               <div className="space-y-2">
@@ -298,7 +298,7 @@ function Checkout() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-6">
+          <section className="rounded-lg border border-border bg-card p-4 sm:p-6">
             <h2 className="font-display text-lg uppercase">3. Entrega</h2>
             <Button
               type="button"
@@ -346,7 +346,7 @@ function Checkout() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-6">
+          <section className="rounded-lg border border-border bg-card p-4 sm:p-6">
             <h2 className="font-display text-lg uppercase">4. Pagamento</h2>
             <button
               type="button"
@@ -358,7 +358,7 @@ function Checkout() {
           </section>
         </div>
 
-        <aside className="h-fit rounded-lg border border-border bg-card p-6 lg:sticky lg:top-40">
+        <aside className="h-fit rounded-lg border border-border bg-card p-4 sm:p-6 lg:sticky lg:top-40">
           <h2 className="font-display text-lg uppercase">Resumo do pedido</h2>
           <ul className="mt-4 space-y-3">
             {items.map((i) => (

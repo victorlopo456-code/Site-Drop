@@ -127,8 +127,8 @@ function AuthPage() {
   };
 
   return (
-    <div className="container-drop flex justify-center py-16">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-card">
+    <div className="container-drop flex justify-center py-8 sm:py-16">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-card sm:p-8">
         <Link
           to="/"
           aria-label="DROP Skate Shop — ir para a página inicial"

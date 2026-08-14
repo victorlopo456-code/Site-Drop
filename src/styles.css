@@ -115,6 +115,8 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    text-wrap: pretty;
   }
 
   h1,
@@ -135,7 +137,10 @@
   margin-inline: auto;
   width: 100%;
   max-width: 84rem;
-  padding-inline: 1rem;
+  padding-inline: 0.875rem;
+  @media (min-width: 640px) {
+    padding-inline: 1rem;
+  }
   @media (min-width: 1024px) {
     padding-inline: 2rem;
   }

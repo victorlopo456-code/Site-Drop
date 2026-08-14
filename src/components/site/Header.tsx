@@ -207,7 +207,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-xl">
       {announcements.length > 0 && (
-        <div className="overflow-hidden border-b border-border bg-surface py-2">
+        <div className="overflow-hidden border-b border-border bg-surface py-1.5 sm:py-2">
           <div className="flex w-max animate-marquee gap-10 whitespace-nowrap text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
             {Array.from({ length: 2 }).map((_, i) => (
               <span key={i} className="flex gap-10">
@@ -225,7 +225,7 @@ export function Header() {
         </div>
       )}
 
-      <div className="container-drop grid grid-cols-[auto_1fr_auto] items-center gap-4 py-3 lg:gap-8">
+      <div className="container-drop grid grid-cols-[auto_1fr_auto] items-center gap-1.5 py-1.5 sm:gap-4 sm:py-3 lg:gap-8">
         <div className="flex min-w-0 items-center gap-3">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -233,7 +233,10 @@ export function Header() {
                 <Menu />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-80 overflow-y-auto bg-background p-6">
+            <SheetContent
+              side="left"
+              className="w-[min(20rem,90vw)] overflow-y-auto bg-background p-5 sm:p-6"
+            >
               <SheetTitle className="font-display uppercase">Menu</SheetTitle>
               <nav className="mt-6 space-y-6">
                 {groups.map((group) => (
@@ -292,7 +295,7 @@ export function Header() {
               alt="DROP Skate Shop"
               width={1280}
               height={1280}
-              className="h-14 w-14 object-contain lg:h-16 lg:w-16"
+              className="h-11 w-11 object-contain sm:h-14 sm:w-14 lg:h-16 lg:w-16"
             />
           </Link>
         </div>
@@ -301,7 +304,7 @@ export function Header() {
           <SearchBox />
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0 sm:gap-1">
           <Button variant="ghost" size="icon" asChild aria-label="Favoritos">
             <Link to="/conta" className="relative">
               <Heart />
@@ -334,7 +337,7 @@ export function Header() {
         </div>
       </div>
 
-      <div className="container-drop pb-3 lg:hidden">
+      <div className="container-drop pb-2 sm:pb-3 lg:hidden">
         <SearchBox onNavigate={() => setMobileOpen(false)} />
       </div>
 

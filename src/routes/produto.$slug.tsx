@@ -121,8 +121,8 @@ function ProductPage() {
   const bought = all.filter((p) => p.id !== product.id).slice(0, 4);
 
   return (
-    <div className="container-drop py-10">
-      <nav className="text-xs uppercase tracking-widest text-muted-foreground">
+    <div className="container-drop py-6 sm:py-10">
+      <nav className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs sm:tracking-widest">
         <Link to="/" className="hover:text-primary">
           Home
         </Link>{" "}
@@ -137,17 +137,17 @@ function ProductPage() {
         / <span className="text-foreground">{product.name}</span>
       </nav>
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-2">
+      <div className="mt-4 grid gap-7 sm:mt-6 lg:grid-cols-2 lg:gap-10">
         {/* Galeria */}
         <div className="flex flex-col-reverse gap-4 sm:flex-row">
-          <div className="flex gap-3 sm:flex-col">
+          <div className="hide-scrollbar flex max-w-full gap-2 overflow-x-auto pb-1 sm:flex-col sm:gap-3 sm:overflow-visible sm:pb-0">
             {product.images.map((img, i) => (
               <button
                 key={i}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => setActive(i)}
                 className={cn(
-                  "h-20 w-20 overflow-hidden rounded border transition-colors",
+                  "h-16 w-16 shrink-0 overflow-hidden rounded border transition-colors sm:h-20 sm:w-20",
                   active === i ? "border-primary" : "border-border",
                 )}
                 aria-label={`Imagem ${i + 1}`}
@@ -182,7 +182,9 @@ function ProductPage() {
         {/* Info */}
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-primary">{product.brand}</p>
-          <h1 className="mt-2 text-3xl uppercase leading-tight md:text-4xl">{product.name}</h1>
+          <h1 className="mt-2 text-2xl uppercase leading-tight sm:text-3xl md:text-4xl">
+            {product.name}
+          </h1>
 
           <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-0.5">
@@ -345,8 +347,8 @@ function ProductPage() {
       </div>
 
       {/* Abas */}
-      <Tabs defaultValue="descricao" className="mt-14">
-        <TabsList className="flex-wrap">
+      <Tabs defaultValue="descricao" className="mt-10 sm:mt-14">
+        <TabsList className="hide-scrollbar w-full justify-start overflow-x-auto whitespace-nowrap sm:flex-wrap">
           <TabsTrigger value="descricao">Descrição</TabsTrigger>
           <TabsTrigger value="medidas">Tabela de medidas</TabsTrigger>
           <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
@@ -453,7 +455,7 @@ function ProductPage() {
       {related.length > 0 && (
         <section className="mt-16">
           <h2 className="mb-6 text-2xl uppercase">Produtos relacionados</h2>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
             {related.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
@@ -463,7 +465,7 @@ function ProductPage() {
 
       <section className="mt-16">
         <h2 className="mb-6 text-2xl uppercase">Comprados juntos</h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
           {bought.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

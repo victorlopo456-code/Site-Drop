@@ -64,7 +64,7 @@ function ProductsPage() {
   const catName = categories.find((c) => c.slug === cat)?.name;
 
   return (
-    <div className="container-drop py-10">
+    <div className="container-drop py-6 sm:py-10">
       <nav className="text-xs uppercase tracking-widest text-muted-foreground">
         <Link to="/" className="hover:text-primary">
           Home
@@ -167,7 +167,7 @@ function ProductsPage() {
               Nenhum produto encontrado. Tente outra busca ou filtro.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 xl:grid-cols-3">
               {list.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}

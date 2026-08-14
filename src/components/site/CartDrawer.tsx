@@ -41,7 +41,7 @@ export function CartDrawer() {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
           {items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
               <ShoppingBag className="h-10 w-10 text-muted-foreground" />
@@ -59,7 +59,7 @@ export function CartDrawer() {
               {items.map((item) => (
                 <li
                   key={item.id}
-                  className="flex gap-3 rounded-lg border border-border bg-card p-3"
+                  className="flex gap-2.5 rounded-lg border border-border bg-card p-2.5 sm:gap-3 sm:p-3"
                 >
                   <img
                     src={item.image}
@@ -67,7 +67,7 @@ export function CartDrawer() {
                     loading="lazy"
                     width={80}
                     height={80}
-                    className="h-20 w-20 rounded object-cover"
+                    className="h-16 w-16 rounded object-cover sm:h-20 sm:w-20"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -112,8 +112,8 @@ export function CartDrawer() {
         </div>
 
         {items.length > 0 && (
-          <div className="space-y-3 border-t border-border p-5">
-            <div className="flex gap-2">
+          <div className="space-y-3 border-t border-border p-4 sm:p-5">
+            <div className="grid grid-cols-[1fr_auto] gap-2">
               <Input
                 placeholder="Cupom (ex: DROP10)"
                 value={code}
@@ -138,7 +138,7 @@ export function CartDrawer() {
                 {applyingCoupon ? <Loader2 className="animate-spin" /> : "Aplicar"}
               </Button>
             </div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-[1fr_auto] gap-2">
               <Input
                 placeholder="CEP para frete"
                 value={cep}
