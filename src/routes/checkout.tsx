@@ -14,6 +14,7 @@ import { createMercadoPagoCheckout } from "@/lib/mercado-pago";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { quoteShipping, type ShippingOption } from "@/lib/shipping";
 import { getAnalyticsAttribution, trackAnalyticsEvent } from "@/lib/analytics";
+import { loadAddresses, type CustomerAddress } from "@/lib/customer-account";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -33,10 +34,40 @@ export const Route = createFileRoute("/checkout")({
 
 const steps = ["Identificação", "Endereço", "Entrega", "Pagamento", "Confirmação"];
 
+function formatCpf(value: string) {
+  return value
+    .replace(/\D/g, "")
+    .slice(0, 11)
+    .replace(/^(\d{3})(\d)/, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1-$2");
+}
+
+function formatCep(value: string) {
+  return value
+    .replace(/\D/g, "")
+    .slice(0, 8)
+    .replace(/^(\d{5})(\d)/, "$1-$2");
+}
+
+function isValidCpf(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+  const check = (length: number) => {
+    const sum = digits
+      .slice(0, length)
+      .split("")
+      .reduce((total, digit, index) => total + Number(digit) * (length + 1 - index), 0);
+    const remainder = (sum * 10) % 11;
+    return Number(digits[length]) === (remainder === 10 ? 0 : remainder);
+  };
+  return check(9) && check(10);
+}
+
 const formSchema = z.object({
   nome: z.string().trim().min(3, "Informe seu nome completo").max(100),
   email: z.string().trim().email("E-mail inválido").max(255),
-  cpf: z.string().trim().min(11, "CPF inválido").max(14),
+  cpf: z.string().trim().refine(isValidCpf, "CPF inválido"),
   cep: z.string().trim().length(8, "CEP deve ter 8 dígitos"),
   endereco: z.string().trim().min(3, "Informe o endereço").max(200),
   numero: z.string().trim().min(1, "Informe o número").max(10),
@@ -51,6 +82,8 @@ function Checkout() {
   const [shippingMessage, setShippingMessage] = useState("");
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
+  const [loadingCustomer, setLoadingCustomer] = useState(true);
   const [form, setForm] = useState({
     nome: "",
     email: "",
@@ -68,8 +101,72 @@ function Checkout() {
     if (items.length) trackAnalyticsEvent("begin_checkout");
   }, [items.length]);
 
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setLoadingCustomer(false);
+      return;
+    }
+    let active = true;
+    void (async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth.user || !active) return;
+        const [{ data: profile }, addresses] = await Promise.all([
+          supabase.from("profiles").select("full_name").eq("id", auth.user.id).maybeSingle(),
+          loadAddresses(),
+        ]);
+        if (!active) return;
+        setSavedAddresses(addresses);
+        const preferred = addresses.find((address) => address.is_default) ?? addresses[0];
+        setForm((current) => ({
+          ...current,
+          nome:
+            current.nome ||
+            preferred?.recipient ||
+            profile?.full_name ||
+            (typeof auth.user.user_metadata.full_name === "string"
+              ? auth.user.user_metadata.full_name
+              : ""),
+          email: current.email || auth.user.email || "",
+          cep: current.cep || (preferred ? formatCep(preferred.postal_code) : ""),
+          endereco:
+            current.endereco ||
+            (preferred
+              ? [preferred.street, preferred.neighborhood].filter(Boolean).join(" - ")
+              : ""),
+          numero: current.numero || preferred?.number || "",
+          cidade:
+            current.cidade ||
+            (preferred ? [preferred.city, preferred.state].filter(Boolean).join("/") : ""),
+        }));
+      } catch {
+        /* O checkout continua disponível para preenchimento manual. */
+      } finally {
+        if (active) setLoadingCustomer(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const applyAddress = (address: CustomerAddress) => {
+    setForm((current) => ({
+      ...current,
+      nome: address.recipient || current.nome,
+      cep: formatCep(address.postal_code),
+      endereco: [address.street, address.neighborhood].filter(Boolean).join(" - "),
+      numero: address.number,
+      cidade: [address.city, address.state].filter(Boolean).join("/"),
+    }));
+    setShipping(null);
+    setShippingOptions([]);
+    setStep(1);
+  };
 
   const calculateShipping = async () => {
     const cep = form.cep.replace(/\D/g, "");
@@ -210,6 +307,9 @@ function Checkout() {
         <div className="space-y-6">
           <section className="rounded-lg border border-border bg-card p-4 sm:p-6">
             <h2 className="font-display text-lg uppercase">1. Identificação</h2>
+            {loadingCustomer && (
+              <p className="mt-2 text-xs text-muted-foreground">Carregando dados da sua conta…</p>
+            )}
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="nome">Nome completo</Label>
@@ -226,7 +326,9 @@ function Checkout() {
                 <Input
                   id="cpf"
                   value={form.cpf}
-                  onChange={set("cpf")}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, cpf: formatCpf(event.target.value) }))
+                  }
                   maxLength={14}
                   inputMode="numeric"
                 />
@@ -246,6 +348,27 @@ function Checkout() {
 
           <section className="rounded-lg border border-border bg-card p-4 sm:p-6">
             <h2 className="font-display text-lg uppercase">2. Endereço</h2>
+            {savedAddresses.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                  Usar endereço salvo
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {savedAddresses.map((address) => (
+                    <Button
+                      key={address.id}
+                      type="button"
+                      variant="surface"
+                      size="sm"
+                      onClick={() => applyAddress(address)}
+                    >
+                      {address.label}
+                      {address.is_default ? " · Principal" : ""}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-4 grid gap-4 sm:grid-cols-4">
               <div className="space-y-2">
                 <Label htmlFor="cep">CEP</Label>
@@ -254,7 +377,10 @@ function Checkout() {
                     id="cep"
                     value={form.cep}
                     onChange={(event) => {
-                      set("cep")(event);
+                      setForm((current) => ({
+                        ...current,
+                        cep: formatCep(event.target.value),
+                      }));
                       setShipping(null);
                       setShippingOptions([]);
                     }}
