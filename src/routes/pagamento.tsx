@@ -101,6 +101,16 @@ function PaymentReturn() {
           <p className="mt-3 break-all text-xs text-muted-foreground">Pedido: {search.pedido}</p>
         )}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
+          {state !== "failed" && (
+            <Button variant="hero" asChild>
+              <Link to="/conta">Acompanhar pedido</Link>
+            </Button>
+          )}
+          {state === "failed" && (
+            <Button variant="hero" asChild>
+              <Link to="/checkout">Tentar novamente</Link>
+            </Button>
+          )}
           <Button variant="surface" asChild>
             <Link to="/">Voltar para a loja</Link>
           </Button>

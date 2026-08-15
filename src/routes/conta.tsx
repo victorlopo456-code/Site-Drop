@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import {
   Bell,
+  Check,
+  Copy,
   CreditCard,
   Eye,
   Heart,
@@ -528,6 +530,18 @@ function Account({ user }: { user: SupabaseUser }) {
 }
 
 function OrderCard({ order }: { order: AdminOrder }) {
+  const progressSteps = [
+    { key: "waiting_payment", label: "Pagamento" },
+    { key: "preparing", label: "Preparando" },
+    { key: "shipped", label: "Enviado" },
+    { key: "delivered", label: "Entregue" },
+  ] as const;
+  const currentStep = Math.max(
+    0,
+    progressSteps.findIndex((step) => step.key === order.fulfillment_status),
+  );
+  const interrupted = ["cancelled", "refunded", "stock_review"].includes(order.fulfillment_status);
+
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
@@ -544,6 +558,31 @@ function OrderCard({ order }: { order: AdminOrder }) {
           </p>
         </div>
       </div>
+      {!interrupted && (
+        <ol className="relative mt-5 grid grid-cols-4 gap-1" aria-label="Andamento do pedido">
+          <span className="absolute left-[12.5%] right-[12.5%] top-3 h-px bg-border" aria-hidden />
+          {progressSteps.map((step, index) => {
+            const completed = index <= currentStep;
+            return (
+              <li
+                key={step.key}
+                className="relative flex min-w-0 flex-col items-center text-center"
+              >
+                <span
+                  className={`z-10 grid h-6 w-6 place-items-center rounded-full border text-[10px] ${completed ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
+                >
+                  {index < currentStep ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                </span>
+                <span
+                  className={`mt-2 text-[10px] leading-tight sm:text-xs ${completed ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  {step.label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
       <div className="mt-4 space-y-3">
         {order.order_items.map((item) => (
           <div key={item.id} className="flex items-center gap-3">
@@ -564,9 +603,22 @@ function OrderCard({ order }: { order: AdminOrder }) {
         ))}
       </div>
       {order.tracking_code && (
-        <div className="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
-          Rastreio: <span className="font-display">{order.tracking_code}</span>
-          {order.carrier ? ` · ${order.carrier}` : ""}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+          <span>
+            Rastreio: <span className="font-display">{order.tracking_code}</span>
+            {order.carrier ? ` · ${order.carrier}` : ""}
+          </span>
+          <Button
+            type="button"
+            variant="surface"
+            size="sm"
+            onClick={() => {
+              void navigator.clipboard.writeText(order.tracking_code!);
+              toast.success("Código de rastreio copiado.");
+            }}
+          >
+            <Copy className="h-3.5 w-3.5" /> Copiar
+          </Button>
         </div>
       )}
     </Card>
