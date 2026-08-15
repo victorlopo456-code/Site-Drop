@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  Boxes,
   CalendarClock,
+  ClipboardList,
   LogOut,
   PackageSearch,
   Pencil,
@@ -10,6 +13,7 @@ import {
   RotateCcw,
   Save,
   Trash2,
+  TrendingUp,
   Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -452,8 +456,9 @@ function SecureAdminPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="catalogo" className="mt-8">
+      <Tabs defaultValue="visao-geral" className="mt-8">
         <TabsList className="flex-wrap">
+          <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
           <TabsTrigger value="catalogo">Produtos, estoque e promoções</TabsTrigger>
@@ -462,6 +467,10 @@ function SecureAdminPage() {
           <TabsTrigger value="aparencia">Aparência da loja</TabsTrigger>
           <TabsTrigger value="rodape">Rodapé e redes sociais</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="visao-geral" className="mt-6">
+          <OperationsOverview />
+        </TabsContent>
 
         <TabsContent value="pedidos" className="mt-6">
           <OrdersAdmin accessToken={accessToken} />
@@ -895,6 +904,166 @@ function addressText(address: AdminOrder["shipping_address"]) {
   return [address.endereco, address.numero, address.cidade, address.cep]
     .filter(Boolean)
     .join(" — ");
+}
+
+function OperationsOverview() {
+  const products = useProducts();
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      setOrders(await loadAdminOrders());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível carregar o resumo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const now = new Date();
+  const approvedThisMonth = orders.filter((order) => {
+    const created = new Date(order.created_at);
+    return (
+      order.payment_status === "approved" &&
+      created.getFullYear() === now.getFullYear() &&
+      created.getMonth() === now.getMonth()
+    );
+  });
+  const revenue = approvedThisMonth.reduce((sum, order) => sum + Number(order.total), 0);
+  const averageTicket = approvedThisMonth.length ? revenue / approvedThisMonth.length : 0;
+  const actionOrders = orders.filter((order) =>
+    ["waiting_payment", "preparing", "stock_review"].includes(order.fulfillment_status),
+  );
+  const lowStock = products.filter((product) => {
+    const stock = totalStock(product);
+    return stock > 0 && stock <= 3 && !product.soldOut;
+  });
+  const soldOut = products.filter((product) => isOutOfStock(product));
+
+  const metrics = [
+    {
+      label: "Faturamento no mês",
+      value: formatBRL(revenue),
+      detail: `${approvedThisMonth.length} venda(s) aprovada(s)`,
+      icon: TrendingUp,
+    },
+    {
+      label: "Ticket médio",
+      value: formatBRL(averageTicket),
+      detail: "Pedidos aprovados neste mês",
+      icon: ClipboardList,
+    },
+    {
+      label: "Pedidos para agir",
+      value: actionOrders.length,
+      detail: "Aguardando, preparando ou revisar",
+      icon: AlertTriangle,
+    },
+    {
+      label: "Atenção no estoque",
+      value: lowStock.length + soldOut.length,
+      detail: `${lowStock.length} baixo · ${soldOut.length} esgotado(s)`,
+      icon: Boxes,
+    },
+  ];
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">
+            Hoje na DROP
+          </p>
+          <h2 className="mt-2 text-3xl uppercase">Visão geral operacional</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            O que precisa da sua atenção para manter vendas, pedidos e estoque em dia.
+          </p>
+        </div>
+        <Button variant="surface" disabled={loading} onClick={() => void refresh()}>
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Atualizar
+        </Button>
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map(({ label, value, detail, icon: Icon }) => (
+          <div key={label} className="rounded-lg border border-border bg-card p-5">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs uppercase text-muted-foreground">{label}</p>
+              <Icon className="h-5 w-5 shrink-0 text-primary" />
+            </div>
+            <p className="mt-3 font-display text-2xl text-primary sm:text-3xl">{value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-border bg-card p-5">
+          <h3 className="font-display text-lg uppercase">Pedidos que exigem ação</h3>
+          <div className="mt-4 space-y-3">
+            {!actionOrders.length ? (
+              <p className="text-sm text-muted-foreground">Nenhum pedido pendente no momento.</p>
+            ) : (
+              actionOrders.slice(0, 6).map((order) => (
+                <div
+                  key={order.id}
+                  className="flex items-center justify-between gap-3 border-b border-border pb-3 text-sm last:border-0"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-display uppercase">#DRP{order.order_number}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {order.buyer_name}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block text-primary">
+                      {fulfillmentLabels[order.fulfillment_status]}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {formatBRL(Number(order.total))}
+                    </span>
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-5">
+          <h3 className="font-display text-lg uppercase">Alertas de estoque</h3>
+          <div className="mt-4 space-y-3">
+            {!lowStock.length && !soldOut.length ? (
+              <p className="text-sm text-muted-foreground">
+                Todos os produtos possuem estoque saudável.
+              </p>
+            ) : (
+              [...soldOut, ...lowStock].slice(0, 8).map((product) => (
+                <div
+                  key={product.id}
+                  className="flex items-center gap-3 border-b border-border pb-3 text-sm last:border-0"
+                >
+                  <img src={product.images[0]} alt="" className="h-10 w-10 rounded object-cover" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{product.name}</span>
+                    <span className="block text-xs text-muted-foreground">SKU {product.sku}</span>
+                  </span>
+                  <span className={isOutOfStock(product) ? "text-destructive" : "text-primary"}>
+                    {isOutOfStock(product) ? "Esgotado" : `${totalStock(product)} restante(s)`}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function AnalyticsAdmin({ accessToken }: { accessToken: string }) {
