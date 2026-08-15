@@ -78,6 +78,7 @@ import {
   saveSitePromoBanner,
   type SitePromoBanner,
 } from "@/lib/site-promo-banner";
+import { loadReviewsForAdmin, moderateReview, type ProductReview } from "@/lib/product-reviews";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -464,6 +465,7 @@ function SecureAdminPage() {
           <TabsTrigger value="catalogo">Produtos, estoque e promoções</TabsTrigger>
           <TabsTrigger value="categorias">Categorias e marcas</TabsTrigger>
           <TabsTrigger value="cupons">Cupons</TabsTrigger>
+          <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
           <TabsTrigger value="aparencia">Aparência da loja</TabsTrigger>
           <TabsTrigger value="rodape">Rodapé e redes sociais</TabsTrigger>
         </TabsList>
@@ -491,6 +493,10 @@ function SecureAdminPage() {
 
         <TabsContent value="cupons" className="mt-6">
           <CouponAdmin accessToken={accessToken} />
+        </TabsContent>
+
+        <TabsContent value="avaliacoes" className="mt-6">
+          <ReviewsAdmin />
         </TabsContent>
 
         <TabsContent value="aparencia" className="mt-6">
@@ -904,6 +910,104 @@ function addressText(address: AdminOrder["shipping_address"]) {
   return [address.endereco, address.numero, address.cidade, address.cep]
     .filter(Boolean)
     .join(" — ");
+}
+
+function ReviewsAdmin() {
+  const products = useProducts();
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      setReviews(await loadReviewsForAdmin());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível carregar avaliações.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    void refresh();
+  }, []);
+  const updateStatus = async (review: ProductReview, status: ProductReview["status"]) => {
+    try {
+      await moderateReview(review.id, status);
+      toast.success(status === "approved" ? "Avaliação aprovada." : "Avaliação rejeitada.");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível moderar.");
+    }
+  };
+  return (
+    <section>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">Confiança</p>
+          <h2 className="mt-2 text-3xl uppercase">Avaliações verificadas</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Aprove ou rejeite comentários enviados por clientes que realmente compraram.
+          </p>
+        </div>
+        <Button variant="surface" disabled={loading} onClick={() => void refresh()}>
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Atualizar
+        </Button>
+      </div>
+      <div className="mt-6 space-y-4">
+        {!loading && !reviews.length && (
+          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+            Nenhuma avaliação enviada.
+          </div>
+        )}
+        {reviews.map((review) => {
+          const product = products.find((item) => item.id === review.product_id);
+          return (
+            <article key={review.id} className="rounded-lg border border-border bg-card p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-display uppercase">{product?.name ?? review.product_id}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {review.reviewer_name} ·{" "}
+                    {new Date(review.created_at).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+                <span className="rounded border border-border px-2 py-1 text-xs uppercase">
+                  {review.status === "pending"
+                    ? "Pendente"
+                    : review.status === "approved"
+                      ? "Aprovada"
+                      : "Rejeitada"}
+                </span>
+              </div>
+              <div className="mt-3 flex gap-1">
+                {Array.from({ length: review.rating }).map((_, index) => (
+                  <span key={index} className="text-primary">
+                    ★
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{review.comment}</p>
+              <div className="mt-4 flex gap-2">
+                <Button
+                  variant="hero"
+                  size="sm"
+                  onClick={() => void updateStatus(review, "approved")}
+                >
+                  Aprovar
+                </Button>
+                <Button
+                  variant="surface"
+                  size="sm"
+                  onClick={() => void updateStatus(review, "rejected")}
+                >
+                  Rejeitar
+                </Button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 function OperationsOverview() {

@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ProductCard } from "@/components/site/ProductCard";
 import {
   discountPercent,
@@ -29,6 +31,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  canReviewProduct,
+  loadProductReviews,
+  submitProductReview,
+  type ProductReview,
+} from "@/lib/product-reviews";
 
 export const Route = createFileRoute("/produto/$slug")({
   loader: ({ params }: { params: { slug: string } }) => {
@@ -76,6 +84,11 @@ function ProductPage() {
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [canReview, setCanReview] = useState(false);
+  const [savingReview, setSavingReview] = useState(false);
   const viewedProductId = product?.id;
   useEffect(() => {
     if (!viewedProductId) return;
@@ -94,6 +107,20 @@ function ProductPage() {
       /* armazenamento indisponível */
     }
     trackAnalyticsEvent("product_view", { productId: viewedProductId });
+  }, [viewedProductId]);
+  useEffect(() => {
+    if (!viewedProductId) return;
+    let active = true;
+    void Promise.all([loadProductReviews(viewedProductId), canReviewProduct(viewedProductId)])
+      .then(([loadedReviews, eligible]) => {
+        if (!active) return;
+        setReviews(loadedReviews);
+        setCanReview(eligible);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [viewedProductId]);
   if (!product) {
     return (
@@ -114,6 +141,9 @@ function ProductPage() {
     availableVariants.find((variant) => variant.id === selectedVariantId) ?? availableVariants[0];
   const stock = product.variants?.length ? (selectedVariant?.stock ?? 0) : totalStock(product);
   const soldOut = isOutOfStock(product) || (Boolean(product.variants?.length) && !selectedVariant);
+  const reviewAverage = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+    : 0;
 
   const related = all
     .filter((p) => p.category === product.category && p.id !== product.id)
@@ -193,14 +223,17 @@ function ProductPage() {
                   key={i}
                   className={cn(
                     "h-4 w-4",
-                    i < Math.round(product.rating)
+                    i < Math.round(reviewAverage)
                       ? "fill-primary text-primary"
                       : "text-muted-foreground",
                   )}
                 />
               ))}
             </span>
-            {product.rating.toFixed(1)} · {product.reviews} avaliações · SKU {product.sku}
+            {reviews.length
+              ? `${reviewAverage.toFixed(1)} · ${reviews.length} avaliações`
+              : "Ainda sem avaliações"}{" "}
+            · SKU {product.sku}
           </div>
 
           <div className="mt-6">
@@ -402,33 +435,88 @@ function ProductPage() {
           value="avaliacoes"
           className="space-y-4 rounded-lg border border-border bg-card p-6"
         >
-          {[
-            {
-              nome: "Rafael M.",
-              nota: 5,
-              texto: "Qualidade absurda, chegou em 3 dias. Recomendo demais.",
-            },
-            {
-              nome: "Bianca S.",
-              nota: 4,
-              texto: "Muito bom, só achei o preço do frete um pouco alto.",
-            },
-            {
-              nome: "Lucas P.",
-              nota: 5,
-              texto: "Original e bem embalado. Já é minha loja de skate favorita.",
-            },
-          ].map((r) => (
-            <div key={r.nome} className="border-b border-border pb-4 last:border-0">
+          {canReview && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-4">
+              <p className="font-display uppercase">Avalie sua compra</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Sua avaliação será publicada após moderação.
+              </p>
+              <div className="mt-4 space-y-2">
+                <Label>Nota</Label>
+                <div className="flex gap-1">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      aria-label={`${index + 1} estrelas`}
+                      onClick={() => setReviewRating(index + 1)}
+                    >
+                      <Star
+                        className={cn(
+                          "h-6 w-6",
+                          index < reviewRating
+                            ? "fill-primary text-primary"
+                            : "text-muted-foreground",
+                        )}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <Label htmlFor="review-comment">Comentário</Label>
+                <Textarea
+                  id="review-comment"
+                  rows={4}
+                  maxLength={1000}
+                  value={reviewComment}
+                  onChange={(event) => setReviewComment(event.target.value)}
+                  placeholder="Conte como foi sua experiência com o produto"
+                />
+                <Button
+                  variant="hero"
+                  size="sm"
+                  disabled={savingReview || reviewComment.trim().length < 10}
+                  onClick={async () => {
+                    setSavingReview(true);
+                    try {
+                      await submitProductReview(product.id, reviewRating, reviewComment);
+                      setReviewComment("");
+                      setCanReview(false);
+                      toast.success("Avaliação enviada para aprovação.");
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : "Não foi possível enviar a avaliação.",
+                      );
+                    } finally {
+                      setSavingReview(false);
+                    }
+                  }}
+                >
+                  {savingReview ? "Enviando…" : "Enviar avaliação"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {!reviews.length && (
+            <p className="text-sm text-muted-foreground">
+              Este produto ainda não recebeu avaliações verificadas.
+            </p>
+          )}
+          {reviews.map((review) => (
+            <div key={review.id} className="border-b border-border pb-4 last:border-0">
               <div className="flex items-center gap-2">
-                <span className="font-display text-sm uppercase">{r.nome}</span>
+                <span className="font-display text-sm uppercase">{review.reviewer_name}</span>
+                <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] uppercase text-primary">
+                  Compra verificada
+                </span>
                 <span className="flex">
-                  {Array.from({ length: r.nota }).map((_, i) => (
+                  {Array.from({ length: review.rating }).map((_, i) => (
                     <Star key={i} className="h-3.5 w-3.5 fill-primary text-primary" />
                   ))}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{r.texto}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>
             </div>
           ))}
         </TabsContent>

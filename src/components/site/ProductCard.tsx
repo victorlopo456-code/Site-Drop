@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Heart, ShoppingBag, Star } from "lucide-react";
+import { Heart, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart";
 import { discountPercent, formatBRL, isOutOfStock, type Product } from "@/lib/catalog";
@@ -68,12 +68,6 @@ export function ProductCard({ product, className }: { product: Product; classNam
         >
           {product.name}
         </Link>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Star className="h-3.5 w-3.5 fill-primary text-primary" />
-          {product.rating.toFixed(1)}
-          <span>({product.reviews})</span>
-        </div>
-
         <div className="mt-auto pt-2">
           {product.compareAt && (
             <p className="text-xs text-muted-foreground line-through">
