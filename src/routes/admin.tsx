@@ -55,6 +55,7 @@ import {
   fulfillmentStatuses,
   loadAdminOrders,
   manuallyManagedFulfillmentStatuses,
+  notifyOrderUpdate,
   refundMercadoPagoOrder,
   updateAdminOrder,
   type AdminOrder,
@@ -1383,6 +1384,19 @@ function OrdersAdmin({ accessToken }: { accessToken: string }) {
     setBusyId(order.id);
     try {
       await updateAdminOrder(order, draft);
+      if (
+        ["preparing", "shipped", "delivered"].includes(draft.fulfillment_status) &&
+        (order.fulfillment_status !== draft.fulfillment_status ||
+          (order.tracking_code ?? "") !== draft.tracking_code.trim())
+      ) {
+        await notifyOrderUpdate({
+          data: {
+            accessToken,
+            orderId: order.id,
+            status: draft.fulfillment_status as "preparing" | "shipped" | "delivered",
+          },
+        });
+      }
       toast.success(`Pedido #DRP${order.order_number} atualizado.`);
       await refresh();
     } catch (error) {

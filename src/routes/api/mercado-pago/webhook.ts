@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
+import { sendOrderEmail } from "@/lib/transactional-email";
 
 function hex(buffer: ArrayBuffer) {
   return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -137,6 +138,24 @@ export const Route = createFileRoute("/api/mercado-pago/webhook")({
               .update({ fulfillment_status: "refunded", refunded_at: new Date().toISOString() })
               .eq("id", order.id);
           }
+        }
+        const emailEvent =
+          payment.status === "approved"
+            ? "payment_approved"
+            : payment.status === "refunded" || payment.status === "charged_back"
+              ? "refunded"
+              : payment.status === "rejected" || payment.status === "cancelled"
+                ? "cancelled"
+                : null;
+        if (emailEvent) {
+          const { data: emailOrder } = await supabase
+            .from("orders")
+            .select(
+              "id,order_number,buyer_name,buyer_email,total,fulfillment_status,carrier,tracking_code",
+            )
+            .eq("id", order.id)
+            .maybeSingle();
+          if (emailOrder) await sendOrderEmail(supabase, emailOrder, emailEvent);
         }
         return Response.json({ received: true });
       },

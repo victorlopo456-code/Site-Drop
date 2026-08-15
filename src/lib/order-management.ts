@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { enforceRateLimit, requireMfaAdmin } from "@/lib/server-security";
+import { sendOrderEmail } from "@/lib/transactional-email";
 
 export const fulfillmentStatuses = [
   "waiting_payment",
@@ -144,6 +145,33 @@ export async function updateAdminOrder(
   if (eventError) throw new Error(`Pedido salvo, mas o histórico falhou: ${eventError.message}`);
 }
 
+const notificationSchema = z.object({
+  accessToken: z.string().min(20).max(10_000),
+  orderId: z.string().uuid(),
+  status: z.enum(["preparing", "shipped", "delivered", "cancelled"]),
+});
+
+export const notifyOrderUpdate = createServerFn({ method: "POST" })
+  .validator(notificationSchema)
+  .handler(async ({ data }) => {
+    const url = process.env.VITE_SUPABASE_URL?.trim();
+    const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    if (!url || !serviceRole) return { sent: false };
+    const supabase = createClient(url, serviceRole, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    await requireMfaAdmin(supabase, data.accessToken);
+    const { data: order } = await supabase
+      .from("orders")
+      .select(
+        "id,order_number,buyer_name,buyer_email,total,fulfillment_status,carrier,tracking_code",
+      )
+      .eq("id", data.orderId)
+      .maybeSingle();
+    if (!order || order.fulfillment_status !== data.status) return { sent: false };
+    return sendOrderEmail(supabase, order, data.status);
+  });
+
 const refundSchema = z.object({
   accessToken: z.string().min(20).max(10_000),
   orderId: z.string().uuid(),
@@ -214,5 +242,13 @@ export const refundMercadoPagoOrder = createServerFn({ method: "POST" })
       description: "Pagamento reembolsado integralmente pelo Mercado Pago.",
       created_by: adminId,
     });
+    const { data: refundedOrder } = await supabase
+      .from("orders")
+      .select(
+        "id,order_number,buyer_name,buyer_email,total,fulfillment_status,carrier,tracking_code",
+      )
+      .eq("id", order.id)
+      .maybeSingle();
+    if (refundedOrder) await sendOrderEmail(supabase, refundedOrder, "refunded");
     return { refunded: true };
   });

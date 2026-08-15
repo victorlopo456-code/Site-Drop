@@ -4,6 +4,7 @@ import { z } from "zod";
 import { verifyShippingQuote } from "@/lib/shipping";
 import { validateCouponInDatabase } from "@/lib/coupons";
 import { enforceRateLimit } from "@/lib/server-security";
+import { sendOrderEmail } from "@/lib/transactional-email";
 
 const checkoutSchema = z.object({
   accessToken: z.string().min(20).max(10_000),
@@ -319,6 +320,14 @@ export const syncMercadoPagoPayment = createServerFn({ method: "POST" })
         .from("orders")
         .update({ fulfillment_status: stockApplied ? "preparing" : "stock_review" })
         .eq("id", order.id);
+      const { data: emailOrder } = await supabase
+        .from("orders")
+        .select(
+          "id,order_number,buyer_name,buyer_email,total,fulfillment_status,carrier,tracking_code",
+        )
+        .eq("id", order.id)
+        .maybeSingle();
+      if (emailOrder) await sendOrderEmail(supabase, emailOrder, "payment_approved");
       return {
         status: stockApplied ? "payment_approved" : "payment_approved_stock_error",
         paymentStatus: payment.status,
@@ -335,5 +344,15 @@ export const syncMercadoPagoPayment = createServerFn({ method: "POST" })
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id);
+    if (["rejected", "cancelled"].includes(payment.status)) {
+      const { data: emailOrder } = await supabase
+        .from("orders")
+        .select(
+          "id,order_number,buyer_name,buyer_email,total,fulfillment_status,carrier,tracking_code",
+        )
+        .eq("id", order.id)
+        .maybeSingle();
+      if (emailOrder) await sendOrderEmail(supabase, emailOrder, "cancelled");
+    }
     return { status, paymentStatus: payment.status };
   });
