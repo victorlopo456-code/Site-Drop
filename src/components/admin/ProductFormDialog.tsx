@@ -23,7 +23,7 @@ import {
 import { addProduct, nextProductId, updateProduct } from "@/lib/store";
 
 const selectClass =
-  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring";
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-foreground text-sm outline-none focus-visible:border-ring [&>option]:bg-background [&>option]:text-foreground";
 
 const slugify = (value: string) =>
   value
