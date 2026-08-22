@@ -81,6 +81,7 @@ function ProductPage() {
   const { add, favorites, toggleFavorite, setOpen } = useCart();
   const navigate = useNavigate();
   const [active, setActive] = useState(0);
+  const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
@@ -193,13 +194,24 @@ function ProductPage() {
               </button>
             ))}
           </div>
-          <div className="group relative flex-1 overflow-hidden rounded-lg border border-border bg-card">
+          <div
+            className="group relative flex-1 overflow-hidden rounded-lg border border-border bg-card lg:cursor-zoom-in"
+            onMouseMove={(event) => {
+              const bounds = event.currentTarget.getBoundingClientRect();
+              setZoomPosition({
+                x: ((event.clientX - bounds.left) / bounds.width) * 100,
+                y: ((event.clientY - bounds.top) / bounds.height) * 100,
+              });
+            }}
+            onMouseLeave={() => setZoomPosition({ x: 50, y: 50 })}
+          >
             <img
               src={product.images[active]}
               alt={product.name}
               width={800}
               height={800}
-              className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-150"
+              style={{ transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%` }}
+              className="aspect-square w-full object-cover transition-transform duration-300 lg:group-hover:scale-150"
             />
             {off > 0 && (
               <span className="absolute left-4 top-4 rounded bg-primary px-3 py-1 font-display text-xs uppercase text-primary-foreground">
