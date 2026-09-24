@@ -19,6 +19,7 @@ import { Footer } from "@/components/site/Footer";
 import { CartDrawer } from "@/components/site/CartDrawer";
 import { VirtualAssistant } from "@/components/site/VirtualAssistant";
 import { MobileBottomNav } from "@/components/site/MobileBottomNav";
+import { PwaManager } from "@/components/site/PwaManager";
 import { CartProvider } from "@/lib/cart";
 import { Toaster } from "@/components/ui/sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -99,6 +100,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "DROP Skate Shop" },
       { name: "description", content: "Skate, streetwear e lifestyle urbano." },
+      { name: "theme-color", content: "#f97316" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "DROP" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -111,6 +117,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow:wght@400;500;600;700&display=swap",
       },
       { rel: "icon", href: favicon, type: "image/png", sizes: "128x128" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/pwa-192.png", sizes: "192x192" },
     ],
   }),
   shellComponent: RootShell,
@@ -152,6 +160,7 @@ function RootComponent() {
         <CartDrawer />
         <MobileBottomNav />
         <VirtualAssistant />
+        <PwaManager />
         <Toaster position="top-center" />
       </CartProvider>
     </QueryClientProvider>
