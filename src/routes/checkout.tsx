@@ -81,6 +81,7 @@ function Checkout() {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [shippingMessage, setShippingMessage] = useState("");
   const [quoting, setQuoting] = useState(false);
+  const [lookingUpCep, setLookingUpCep] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
   const [loadingCustomer, setLoadingCustomer] = useState(true);
@@ -100,6 +101,61 @@ function Checkout() {
   useEffect(() => {
     if (items.length) trackAnalyticsEvent("begin_checkout");
   }, [items.length]);
+
+  useEffect(() => {
+    const cep = form.cep.replace(/\D/g, "");
+    if (cep.length !== 8) {
+      setLookingUpCep(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLookingUpCep(true);
+      void fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: controller.signal })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Falha ao consultar o CEP.");
+          return (await response.json()) as {
+            erro?: boolean;
+            logradouro?: string;
+            bairro?: string;
+            localidade?: string;
+            uf?: string;
+          };
+        })
+        .then((address) => {
+          if (address.erro) {
+            toast.error("CEP não encontrado.");
+            return;
+          }
+          setForm((current) => {
+            if (current.cep.replace(/\D/g, "") !== cep) return current;
+            return {
+              ...current,
+              endereco:
+                [address.logradouro, address.bairro].filter(Boolean).join(" - ") ||
+                current.endereco,
+              cidade:
+                address.localidade && address.uf
+                  ? `${address.localidade}/${address.uf}`
+                  : current.cidade,
+            };
+          });
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          toast.error("Não foi possível consultar o CEP agora.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLookingUpCep(false);
+        });
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [form.cep]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -377,9 +433,12 @@ function Checkout() {
                     id="cep"
                     value={form.cep}
                     onChange={(event) => {
+                      const cep = formatCep(event.target.value);
                       setForm((current) => ({
                         ...current,
-                        cep: formatCep(event.target.value),
+                        cep,
+                        endereco: cep !== current.cep ? "" : current.endereco,
+                        cidade: cep !== current.cep ? "" : current.cidade,
                       }));
                       setShipping(null);
                       setShippingOptions([]);
@@ -392,11 +451,11 @@ function Checkout() {
                     type="button"
                     variant="surface"
                     size="icon"
-                    disabled={quoting}
+                    disabled={quoting || lookingUpCep}
                     onClick={() => void calculateShipping()}
                     aria-label="Buscar CEP e calcular frete"
                   >
-                    {quoting ? (
+                    {quoting || lookingUpCep ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Search className="h-4 w-4" />
