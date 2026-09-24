@@ -232,6 +232,7 @@ function Account({ user }: { user: SupabaseUser }) {
       })
       .eq("id", user.id);
     if (profileError) return toast.error(profileError.message);
+    window.dispatchEvent(new Event("drop-profile-updated"));
     toast.success(
       email !== user.email
         ? "Perfil salvo. Confirme a troca no novo e-mail."

@@ -11,7 +11,7 @@ import { useProducts } from "@/lib/store";
 import { useTaxonomy } from "@/lib/taxonomy";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
-import { useAdminAccess } from "@/lib/supabase";
+import { useAdminAccess, useCurrentUserName } from "@/lib/supabase";
 import {
   defaultSiteAnnouncements,
   loadSiteAnnouncements,
@@ -190,6 +190,7 @@ export function Header() {
   const categories = useTaxonomy().categories.filter((category) => category.enabled);
   const { count, setOpen, favorites } = useCart();
   const isAdmin = useAdminAccess();
+  const userName = useCurrentUserName();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<SiteAnnouncement[]>(defaultSiteAnnouncements);
 
@@ -320,9 +321,18 @@ export function Header() {
               )}
             </Link>
           </Button>
-          <Button variant="ghost" size="icon" asChild aria-label="Minha conta">
-            <Link to="/entrar">
+          <Button
+            variant="ghost"
+            size={userName ? "default" : "icon"}
+            asChild
+            aria-label={userName ? `Minha conta, ${userName}` : "Entrar ou criar conta"}
+            className={userName ? "max-w-36 gap-2 px-2 sm:px-3" : undefined}
+          >
+            <Link to={userName ? "/conta" : "/entrar"}>
               <User />
+              {userName && (
+                <span className="hidden truncate text-sm sm:inline">Olá, {userName}</span>
+              )}
             </Link>
           </Button>
           <Button
