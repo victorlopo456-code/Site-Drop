@@ -28,7 +28,13 @@ import { useCart } from "@/lib/cart";
 import { useProducts } from "@/lib/store";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { formatBRL } from "@/lib/catalog";
-import { fulfillmentLabels, loadCustomerOrders, type AdminOrder } from "@/lib/order-management";
+import {
+  fulfillmentLabels,
+  getFulfillmentLabel,
+  isStorePickup,
+  loadCustomerOrders,
+  type AdminOrder,
+} from "@/lib/order-management";
 import {
   createReturnRequest,
   deleteAddress,
@@ -530,11 +536,12 @@ function Account({ user }: { user: SupabaseUser }) {
 }
 
 function OrderCard({ order }: { order: AdminOrder }) {
+  const storePickup = isStorePickup(order.shipping_method);
   const progressSteps = [
     { key: "waiting_payment", label: "Pagamento" },
     { key: "preparing", label: "Preparando" },
-    { key: "shipped", label: "Enviado" },
-    { key: "delivered", label: "Entregue" },
+    { key: "shipped", label: storePickup ? "Pronto para retirada" : "Enviado" },
+    { key: "delivered", label: storePickup ? "Retirado" : "Entregue" },
   ] as const;
   const currentStep = Math.max(
     0,
@@ -554,7 +561,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
         <div className="text-right">
           <p className="font-display text-primary">{formatBRL(Number(order.total))}</p>
           <p className="text-xs text-muted-foreground">
-            {fulfillmentLabels[order.fulfillment_status]}
+            {getFulfillmentLabel(order.fulfillment_status, order.shipping_method)}
           </p>
         </div>
       </div>

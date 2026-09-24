@@ -52,6 +52,8 @@ import {
 } from "@/lib/site-settings";
 import {
   fulfillmentLabels,
+  getFulfillmentLabel,
+  isStorePickup,
   fulfillmentStatuses,
   loadAdminOrders,
   manuallyManagedFulfillmentStatuses,
@@ -1472,6 +1474,7 @@ function OrdersAdmin({ accessToken }: { accessToken: string }) {
           {filtered.map((order) => {
             const draft = drafts[order.id];
             if (!draft) return null;
+            const storePickup = isStorePickup(order.shipping_method);
             const canRefund =
               order.status === "payment_approved" && Boolean(order.mercado_pago_payment_id);
             return (
@@ -1552,29 +1555,41 @@ function OrdersAdmin({ accessToken }: { accessToken: string }) {
                       >
                         {manuallyManagedFulfillmentStatuses.map((status) => (
                           <option key={status} value={status}>
-                            {fulfillmentLabels[status]}
+                            {getFulfillmentLabel(status, order.shipping_method)}
                           </option>
                         ))}
                       </select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Transportadora</Label>
-                      <Input
-                        value={draft.carrier}
-                        maxLength={100}
-                        onChange={(event) => changeDraft(order.id, { carrier: event.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Código de rastreio</Label>
-                      <Input
-                        value={draft.tracking_code}
-                        maxLength={100}
-                        onChange={(event) =>
-                          changeDraft(order.id, { tracking_code: event.target.value })
-                        }
-                      />
-                    </div>
+                    {!storePickup && (
+                      <div className="space-y-2">
+                        <Label>Transportadora</Label>
+                        <Input
+                          value={draft.carrier}
+                          maxLength={100}
+                          onChange={(event) =>
+                            changeDraft(order.id, { carrier: event.target.value })
+                          }
+                        />
+                      </div>
+                    )}
+                    {!storePickup && (
+                      <div className="space-y-2">
+                        <Label>Código de rastreio</Label>
+                        <Input
+                          value={draft.tracking_code}
+                          maxLength={100}
+                          onChange={(event) =>
+                            changeDraft(order.id, { tracking_code: event.target.value })
+                          }
+                        />
+                      </div>
+                    )}
+                    {storePickup && (
+                      <p className="text-sm text-muted-foreground sm:col-span-2">
+                        Retirada na loja: use “Pronto para retirada” quando o pedido estiver
+                        separado e “Retirado” após a entrega ao cliente.
+                      </p>
+                    )}
                     <div className="space-y-2 sm:col-span-2">
                       <Label>Observações internas</Label>
                       <Textarea

@@ -34,6 +34,18 @@ export const fulfillmentLabels: Record<FulfillmentStatus, string> = {
   stock_review: "Revisar estoque",
 };
 
+export function isStorePickup(shippingMethod: string | null | undefined) {
+  return shippingMethod?.trim().toLocaleLowerCase("pt-BR") === "retirar na loja";
+}
+
+export function getFulfillmentLabel(status: FulfillmentStatus, shippingMethod?: string | null) {
+  if (isStorePickup(shippingMethod)) {
+    if (status === "shipped") return "Pronto para retirada";
+    if (status === "delivered") return "Retirado";
+  }
+  return fulfillmentLabels[status];
+}
+
 export type AdminOrderItem = {
   id: number;
   product_id: string | null;
@@ -126,7 +138,9 @@ export async function updateAdminOrder(
   ) {
     throw new Error("Esse status é controlado automaticamente pelo pagamento e pelo estoque.");
   }
+  const storePickup = isStorePickup(order.shipping_method);
   if (
+    !storePickup &&
     (patch.fulfillment_status === "shipped" || patch.fulfillment_status === "delivered") &&
     !patch.tracking_code.trim()
   ) {
@@ -135,8 +149,8 @@ export async function updateAdminOrder(
   const now = new Date().toISOString();
   const update = {
     ...patch,
-    carrier: patch.carrier.trim() || null,
-    tracking_code: patch.tracking_code.trim() || null,
+    carrier: storePickup ? null : patch.carrier.trim() || null,
+    tracking_code: storePickup ? null : patch.tracking_code.trim() || null,
     admin_notes: patch.admin_notes.trim() || null,
     shipped_at:
       patch.fulfillment_status === "shipped" || patch.fulfillment_status === "delivered"
@@ -152,7 +166,7 @@ export async function updateAdminOrder(
   const { error: eventError } = await supabase.from("order_events").insert({
     order_id: order.id,
     event_type: "fulfillment_updated",
-    description: `Pedido atualizado para: ${fulfillmentLabels[patch.fulfillment_status]}`,
+    description: `Pedido atualizado para: ${getFulfillmentLabel(patch.fulfillment_status, order.shipping_method)}`,
     created_by: auth.user?.id ?? null,
   });
   if (eventError) throw new Error(`Pedido salvo, mas o histórico falhou: ${eventError.message}`);
@@ -177,7 +191,7 @@ export const notifyOrderUpdate = createServerFn({ method: "POST" })
     const { data: order } = await supabase
       .from("orders")
       .select(
-        "id,order_number,buyer_name,buyer_email,total,fulfillment_status,carrier,tracking_code",
+        "id,order_number,buyer_name,buyer_email,total,fulfillment_status,shipping_method,carrier,tracking_code",
       )
       .eq("id", data.orderId)
       .maybeSingle();

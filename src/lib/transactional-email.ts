@@ -7,6 +7,7 @@ type EmailOrder = {
   buyer_email: string;
   total: number | string;
   fulfillment_status: string;
+  shipping_method?: string | null;
   carrier: string | null;
   tracking_code: string | null;
 };
@@ -59,7 +60,23 @@ export async function sendOrderEmail(
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.ORDER_EMAIL_FROM?.trim();
   const siteUrl = (process.env.SITE_URL ?? "https://drop-skate-shop.vercel.app").replace(/\/$/, "");
-  const content = statusContent[event];
+  const storePickup =
+    order.shipping_method?.trim().toLocaleLowerCase("pt-BR") === "retirar na loja";
+  const pickupContent = storePickup
+    ? {
+        shipped: {
+          subject: "Pedido pronto para retirada",
+          title: "Seu pedido está pronto para retirada!",
+          message: "Seu pedido já pode ser retirado em nossa loja física.",
+        },
+        delivered: {
+          subject: "Pedido retirado",
+          title: "Pedido retirado!",
+          message: "A retirada foi concluída. Obrigado por escolher a DROP.",
+        },
+      }
+    : null;
+  const content = pickupContent?.[event as "shipped" | "delivered"] ?? statusContent[event];
   if (!apiKey || !from || !content) return { sent: false, reason: "not_configured" };
 
   const eventKey = `${event}-${order.tracking_code ?? "none"}`.slice(0, 180);
