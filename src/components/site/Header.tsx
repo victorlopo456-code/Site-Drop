@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { Heart, LogOut, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { toast } from "sonner";
 import logo from "@/assets/logo-drop.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { useProducts } from "@/lib/store";
 import { useTaxonomy } from "@/lib/taxonomy";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
-import { useAdminAccess, useCurrentUserName } from "@/lib/supabase";
+import { getSupabaseBrowserClient, useAdminAccess, useCurrentUserName } from "@/lib/supabase";
 import {
   defaultSiteAnnouncements,
   loadSiteAnnouncements,
@@ -187,11 +188,13 @@ function MegaMenu() {
 }
 
 export function Header() {
+  const navigate = useNavigate();
   const categories = useTaxonomy().categories.filter((category) => category.enabled);
   const { count, setOpen, favorites } = useCart();
   const isAdmin = useAdminAccess();
   const userName = useCurrentUserName();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [announcements, setAnnouncements] = useState<SiteAnnouncement[]>(defaultSiteAnnouncements);
 
   useEffect(() => {
@@ -321,6 +324,28 @@ export function Header() {
               )}
             </Link>
           </Button>
+          {userName && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={signingOut}
+              aria-label="Sair da conta"
+              title="Sair da conta"
+              onClick={async () => {
+                const supabase = getSupabaseBrowserClient();
+                if (!supabase) return;
+                setSigningOut(true);
+                const { error } = await supabase.auth.signOut();
+                setSigningOut(false);
+                if (error) return toast.error("Não foi possível sair da conta.");
+                toast.success("Você saiu da sua conta.");
+                await navigate({ to: "/" });
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size={userName ? "default" : "icon"}
