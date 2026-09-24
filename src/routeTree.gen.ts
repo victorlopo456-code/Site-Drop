@@ -24,6 +24,7 @@ import { Route as SobreRouteImport } from './routes/sobre'
 import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as TrocasEDevolucoesRouteImport } from './routes/trocas-e-devolucoes'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
+import { Route as ApiMarketingNotificationsRouteImport } from './routes/api/marketing/notifications'
 import { Route as ApiMercadoPagoWebhookRouteImport } from './routes/api/mercado-pago/webhook'
 import { Route as ApiOrdersPaymentRemindersRouteImport } from './routes/api/orders/payment-reminders'
 import { Route as ApiSitemapXmlRouteImport } from './routes/api/sitemap.xml'
@@ -103,6 +104,12 @@ const ProdutoSlugRoute = ProdutoSlugRouteImport.update({
   path: '/produto/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMarketingNotificationsRoute =
+  ApiMarketingNotificationsRouteImport.update({
+    id: '/api/marketing/notifications',
+    path: '/api/marketing/notifications',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiMercadoPagoWebhookRoute = ApiMercadoPagoWebhookRouteImport.update({
   id: '/api/mercado-pago/webhook',
   path: '/api/mercado-pago/webhook',
@@ -136,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/trocas-e-devolucoes': typeof TrocasEDevolucoesRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/api/marketing/notifications': typeof ApiMarketingNotificationsRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
   '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
   '/api/sitemap/xml': typeof ApiSitemapXmlRoute
@@ -156,6 +164,7 @@ export interface FileRoutesByTo {
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/trocas-e-devolucoes': typeof TrocasEDevolucoesRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/api/marketing/notifications': typeof ApiMarketingNotificationsRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
   '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
   '/api/sitemap/xml': typeof ApiSitemapXmlRoute
@@ -177,6 +186,7 @@ export interface FileRoutesById {
   '/termos-de-uso': typeof TermosDeUsoRoute
   '/trocas-e-devolucoes': typeof TrocasEDevolucoesRoute
   '/produto/$slug': typeof ProdutoSlugRoute
+  '/api/marketing/notifications': typeof ApiMarketingNotificationsRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
   '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
   '/api/sitemap/xml': typeof ApiSitemapXmlRoute
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/trocas-e-devolucoes'
     | '/produto/$slug'
+    | '/api/marketing/notifications'
     | '/api/mercado-pago/webhook'
     | '/api/orders/payment-reminders'
     | '/api/sitemap/xml'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/trocas-e-devolucoes'
     | '/produto/$slug'
+    | '/api/marketing/notifications'
     | '/api/mercado-pago/webhook'
     | '/api/orders/payment-reminders'
     | '/api/sitemap/xml'
@@ -239,6 +251,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/trocas-e-devolucoes'
     | '/produto/$slug'
+    | '/api/marketing/notifications'
     | '/api/mercado-pago/webhook'
     | '/api/orders/payment-reminders'
     | '/api/sitemap/xml'
@@ -260,6 +273,7 @@ export interface RootRouteChildren {
   TermosDeUsoRoute: typeof TermosDeUsoRoute
   TrocasEDevolucoesRoute: typeof TrocasEDevolucoesRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
+  ApiMarketingNotificationsRoute: typeof ApiMarketingNotificationsRoute
   ApiMercadoPagoWebhookRoute: typeof ApiMercadoPagoWebhookRoute
   ApiOrdersPaymentRemindersRoute: typeof ApiOrdersPaymentRemindersRoute
   ApiSitemapXmlRoute: typeof ApiSitemapXmlRoute
@@ -372,6 +386,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProdutoSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/marketing/notifications': {
+      id: '/api/marketing/notifications'
+      path: '/api/marketing/notifications'
+      fullPath: '/api/marketing/notifications'
+      preLoaderRoute: typeof ApiMarketingNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mercado-pago/webhook': {
       id: '/api/mercado-pago/webhook'
       path: '/api/mercado-pago/webhook'
@@ -412,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermosDeUsoRoute: TermosDeUsoRoute,
   TrocasEDevolucoesRoute: TrocasEDevolucoesRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
+  ApiMarketingNotificationsRoute: ApiMarketingNotificationsRoute,
   ApiMercadoPagoWebhookRoute: ApiMercadoPagoWebhookRoute,
   ApiOrdersPaymentRemindersRoute: ApiOrdersPaymentRemindersRoute,
   ApiSitemapXmlRoute: ApiSitemapXmlRoute,

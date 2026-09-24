@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ProductCard } from "@/components/site/ProductCard";
 import {
   discountPercent,
@@ -38,6 +39,7 @@ import {
   submitProductReview,
   type ProductReview,
 } from "@/lib/product-reviews";
+import { subscribeStockAlert } from "@/lib/customer-marketing";
 
 export const Route = createFileRoute("/produto/$slug")({
   loader: async ({ params }: { params: { slug: string } }) => {
@@ -93,6 +95,8 @@ function ProductPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [canReview, setCanReview] = useState(false);
   const [savingReview, setSavingReview] = useState(false);
+  const [stockAlertEmail, setStockAlertEmail] = useState("");
+  const [savingStockAlert, setSavingStockAlert] = useState(false);
   const viewedProductId = product?.id;
   useEffect(() => {
     if (!viewedProductId) return;
@@ -142,9 +146,13 @@ function ProductPage() {
   const isFav = favorites.includes(product.id);
   const availableVariants = (product.variants ?? []).filter((variant) => variant.stock > 0);
   const selectedVariant =
-    availableVariants.find((variant) => variant.id === selectedVariantId) ?? availableVariants[0];
+    product.variants?.find((variant) => variant.id === selectedVariantId) ??
+    availableVariants[0] ??
+    product.variants?.[0];
   const stock = product.variants?.length ? (selectedVariant?.stock ?? 0) : totalStock(product);
-  const soldOut = isOutOfStock(product) || (Boolean(product.variants?.length) && !selectedVariant);
+  const soldOut =
+    isOutOfStock(product) ||
+    (Boolean(product.variants?.length) && (!selectedVariant || selectedVariant.stock <= 0));
   const reviewAverage = reviews.length
     ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
     : 0;
@@ -306,7 +314,7 @@ function ProductPage() {
                     <button
                       type="button"
                       key={variant.id}
-                      disabled={variant.stock <= 0 || product.soldOut}
+                      disabled={Boolean(product.soldOut)}
                       onClick={() => {
                         setSelectedVariantId(variant.id);
                         setQty(1);
@@ -314,8 +322,8 @@ function ProductPage() {
                       className={cn(
                         "rounded-md border px-3 py-2 text-sm transition-colors",
                         selected ? "border-primary text-primary" : "border-border",
-                        (variant.stock <= 0 || product.soldOut) &&
-                          "cursor-not-allowed opacity-40 line-through",
+                        variant.stock <= 0 && "opacity-60 line-through",
+                        product.soldOut && "cursor-not-allowed opacity-40",
                       )}
                     >
                       {[variant.size, variant.color].filter(Boolean).join(" · ")}
@@ -390,6 +398,56 @@ function ProductPage() {
               <ShoppingBag /> Adicionar ao carrinho
             </Button>
           </div>
+
+          {soldOut && (
+            <div className="mt-4 rounded-lg border border-primary/40 bg-primary/5 p-4">
+              <p className="font-display text-sm uppercase text-primary">Avise-me quando voltar</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Enviaremos somente um e-mail quando{" "}
+                {selectedVariant?.size ? `o tamanho ${selectedVariant.size}` : "este produto"}{" "}
+                estiver disponível.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Input
+                  type="email"
+                  value={stockAlertEmail}
+                  onChange={(event) => setStockAlertEmail(event.target.value)}
+                  placeholder="Seu melhor e-mail"
+                  maxLength={320}
+                />
+                <Button
+                  variant="surface"
+                  disabled={savingStockAlert}
+                  onClick={async () => {
+                    if (!/^\S+@\S+\.\S+$/.test(stockAlertEmail)) {
+                      toast.error("Informe um e-mail válido.");
+                      return;
+                    }
+                    setSavingStockAlert(true);
+                    try {
+                      await subscribeStockAlert({
+                        data: {
+                          productId: product.id,
+                          variantId: selectedVariant?.id ?? null,
+                          email: stockAlertEmail,
+                        },
+                      });
+                      toast.success("Aviso de reposição ativado!");
+                      setStockAlertEmail("");
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error ? error.message : "Não foi possível criar o aviso.",
+                      );
+                    } finally {
+                      setSavingStockAlert(false);
+                    }
+                  }}
+                >
+                  {savingStockAlert ? "Salvando…" : "Quero ser avisado"}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 flex gap-4 text-sm">
             <button

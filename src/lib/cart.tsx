@@ -11,6 +11,7 @@ import { isOutOfStock, type Product, type Variant } from "@/lib/catalog";
 import { couponDiscount, validateCoupon, type CouponApplication } from "@/lib/coupons";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { syncRecoveryCart } from "@/lib/customer-marketing";
 
 export type CartItem = {
   id: string;
@@ -40,6 +41,8 @@ type CartContextValue = {
   applyCoupon: (code: string) => Promise<boolean>;
   favorites: string[];
   toggleFavorite: (id: string) => void;
+  recoveryEmail: string;
+  saveRecoveryEmail: (email: string) => Promise<void>;
 };
 
 const CART_KEY = "drop-cart-v2";
@@ -115,10 +118,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [coupon, setCoupon] = useState<string | null>(null);
   const [couponRule, setCouponRule] = useState<CouponApplication | null>(null);
   const [open, setOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
 
   useEffect(() => {
     setItems(readCart());
     setFavorites(readStringArray("drop-favorites"));
+    setRecoveryEmail(localStorage.getItem("drop-cart-email") ?? "");
   }, []);
 
   useEffect(() => {
@@ -128,6 +133,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
       /* storage unavailable */
     }
   }, [items]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timeout = window.setTimeout(async () => {
+      try {
+        let visitorId = localStorage.getItem("drop-cart-visitor");
+        if (!visitorId) {
+          visitorId = crypto.randomUUID();
+          localStorage.setItem("drop-cart-visitor", visitorId);
+        }
+        const supabase = getSupabaseBrowserClient();
+        const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+        await syncRecoveryCart({
+          data: {
+            visitorId,
+            accessToken: data.session?.access_token ?? null,
+            email: recoveryEmail.trim() || null,
+            items: items.map(
+              ({ productId, variantId, slug, name, variantLabel, image, price, qty }) => ({
+                productId,
+                variantId,
+                slug,
+                name,
+                variantLabel,
+                image,
+                price,
+                qty,
+              }),
+            ),
+          },
+        });
+      } catch {
+        /* A recuperacao nao deve interromper a compra. */
+      }
+    }, 1_500);
+    return () => window.clearTimeout(timeout);
+  }, [items, recoveryEmail]);
 
   useEffect(() => {
     try {
@@ -206,6 +248,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setFavorites((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
   }, []);
 
+  const saveRecoveryEmail = useCallback(async (email: string) => {
+    const normalized = email.trim().toLowerCase();
+    localStorage.setItem("drop-cart-email", normalized);
+    setRecoveryEmail(normalized);
+  }, []);
+
   const discount = couponRule ? couponDiscount(couponRule, subtotal) : 0;
   const count = items.reduce((acc, i) => acc + i.qty, 0);
 
@@ -224,6 +272,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     applyCoupon,
     favorites,
     toggleFavorite,
+    recoveryEmail,
+    saveRecoveryEmail,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Loader2, Minus, Plus, ShoppingBag, Trash2, Truck } from "lucide-react";
+import { Bell, Loader2, Minus, Plus, ShoppingBag, Trash2, Truck } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -18,14 +18,27 @@ import { quoteShipping } from "@/lib/shipping";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export function CartDrawer() {
-  const { items, open, setOpen, setQty, remove, subtotal, discount, coupon, applyCoupon } =
-    useCart();
+  const {
+    items,
+    open,
+    setOpen,
+    setQty,
+    remove,
+    subtotal,
+    discount,
+    coupon,
+    applyCoupon,
+    recoveryEmail,
+    saveRecoveryEmail,
+  } = useCart();
   const [code, setCode] = useState("");
   const [cep, setCep] = useState("");
   const [shipping, setShipping] = useState<number | null>(null);
   const [shippingLabel, setShippingLabel] = useState("");
   const [quoting, setQuoting] = useState(false);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [email, setEmail] = useState(recoveryEmail);
+  useEffect(() => setEmail(recoveryEmail), [recoveryEmail]);
 
   const total = Math.max(subtotal - discount + (shipping ?? 0), 0);
 
@@ -200,6 +213,33 @@ export function CartDrawer() {
             {shippingLabel && (
               <p className="text-xs text-muted-foreground">Menor valor: {shippingLabel}</p>
             )}
+
+            <div className="rounded-md border border-border bg-card p-3">
+              <p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <Bell className="h-3.5 w-3.5 text-primary" />
+                Receba um lembrete se deixar esta compra para depois.
+              </p>
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <Input
+                  type="email"
+                  placeholder="Seu melhor e-mail"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  maxLength={320}
+                />
+                <Button
+                  variant="surface"
+                  onClick={async () => {
+                    if (!/^\S+@\S+\.\S+$/.test(email))
+                      return toast.error("Informe um e-mail válido.");
+                    await saveRecoveryEmail(email);
+                    toast.success("Lembrete de carrinho ativado.");
+                  }}
+                >
+                  Ativar
+                </Button>
+              </div>
+            </div>
 
             <Separator />
 
