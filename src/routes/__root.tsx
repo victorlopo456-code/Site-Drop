@@ -17,6 +17,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { CartDrawer } from "@/components/site/CartDrawer";
+import { VirtualAssistant } from "@/components/site/VirtualAssistant";
 import { CartProvider } from "@/lib/cart";
 import { Toaster } from "@/components/ui/sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -148,6 +149,7 @@ function RootComponent() {
           <Footer />
         </div>
         <CartDrawer />
+        <VirtualAssistant />
         <Toaster position="top-center" />
       </CartProvider>
     </QueryClientProvider>
