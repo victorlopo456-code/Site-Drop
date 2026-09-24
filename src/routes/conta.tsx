@@ -7,6 +7,7 @@ import {
   Copy,
   CreditCard,
   Eye,
+  ExternalLink,
   Heart,
   KeyRound,
   LogOut,
@@ -28,6 +29,7 @@ import { useCart } from "@/lib/cart";
 import { useProducts } from "@/lib/store";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { formatBRL } from "@/lib/catalog";
+import { trackingUrl } from "@/lib/tracking";
 import {
   fulfillmentLabels,
   getFulfillmentLabel,
@@ -625,6 +627,15 @@ function OrderCard({ order }: { order: AdminOrder }) {
             }}
           >
             <Copy className="h-3.5 w-3.5" /> Copiar
+          </Button>
+          <Button variant="hero" size="sm" asChild>
+            <a
+              href={trackingUrl(order.carrier, order.tracking_code)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Rastrear pedido
+            </a>
           </Button>
         </div>
       )}

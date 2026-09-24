@@ -25,6 +25,7 @@ import { Route as TermosDeUsoRouteImport } from './routes/termos-de-uso'
 import { Route as TrocasEDevolucoesRouteImport } from './routes/trocas-e-devolucoes'
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 import { Route as ApiMercadoPagoWebhookRouteImport } from './routes/api/mercado-pago/webhook'
+import { Route as ApiOrdersPaymentRemindersRouteImport } from './routes/api/orders/payment-reminders'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -106,6 +107,12 @@ const ApiMercadoPagoWebhookRoute = ApiMercadoPagoWebhookRouteImport.update({
   path: '/api/mercado-pago/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrdersPaymentRemindersRoute =
+  ApiOrdersPaymentRemindersRouteImport.update({
+    id: '/api/orders/payment-reminders',
+    path: '/api/orders/payment-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/trocas-e-devolucoes': typeof TrocasEDevolucoesRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
+  '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,6 +150,7 @@ export interface FileRoutesByTo {
   '/trocas-e-devolucoes': typeof TrocasEDevolucoesRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
+  '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +170,7 @@ export interface FileRoutesById {
   '/trocas-e-devolucoes': typeof TrocasEDevolucoesRoute
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
+  '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/trocas-e-devolucoes'
     | '/produto/$slug'
     | '/api/mercado-pago/webhook'
+    | '/api/orders/payment-reminders'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/trocas-e-devolucoes'
     | '/produto/$slug'
     | '/api/mercado-pago/webhook'
+    | '/api/orders/payment-reminders'
   id:
     | '__root__'
     | '/'
@@ -217,6 +229,7 @@ export interface FileRouteTypes {
     | '/trocas-e-devolucoes'
     | '/produto/$slug'
     | '/api/mercado-pago/webhook'
+    | '/api/orders/payment-reminders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +249,7 @@ export interface RootRouteChildren {
   TrocasEDevolucoesRoute: typeof TrocasEDevolucoesRoute
   ProdutoSlugRoute: typeof ProdutoSlugRoute
   ApiMercadoPagoWebhookRoute: typeof ApiMercadoPagoWebhookRoute
+  ApiOrdersPaymentRemindersRoute: typeof ApiOrdersPaymentRemindersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -352,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMercadoPagoWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/orders/payment-reminders': {
+      id: '/api/orders/payment-reminders'
+      path: '/api/orders/payment-reminders'
+      fullPath: '/api/orders/payment-reminders'
+      preLoaderRoute: typeof ApiOrdersPaymentRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -372,6 +393,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrocasEDevolucoesRoute: TrocasEDevolucoesRoute,
   ProdutoSlugRoute: ProdutoSlugRoute,
   ApiMercadoPagoWebhookRoute: ApiMercadoPagoWebhookRoute,
+  ApiOrdersPaymentRemindersRoute: ApiOrdersPaymentRemindersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

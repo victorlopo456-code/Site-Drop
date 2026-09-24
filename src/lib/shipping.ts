@@ -15,7 +15,8 @@ const itemsSchema = z
   .max(100);
 
 const quoteSchema = z.object({
-  accessToken: z.string().min(20).max(10_000),
+  accessToken: z.string().min(20).max(10_000).nullable(),
+  visitorId: z.string().uuid(),
   cep: z.string().regex(/^\d{8}$/),
   items: itemsSchema,
 });
@@ -156,9 +157,9 @@ export const quoteShipping = createServerFn({ method: "POST" })
     const supabase = createClient(supabaseUrl, serviceRole, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: auth, error: authError } = await supabase.auth.getUser(data.accessToken);
-    if (authError || !auth.user) throw new Error("Entre na sua conta para calcular o frete.");
-    await enforceRateLimit(supabase, auth.user.id, "shipping-quote", 30, 10 * 60);
+    const auth = data.accessToken ? await supabase.auth.getUser(data.accessToken) : null;
+    const rateLimitKey = auth?.data.user?.id ?? `visitor:${data.visitorId}`;
+    await enforceRateLimit(supabase, rateLimitKey, "shipping-quote", 30, 10 * 60);
 
     const ids = [...new Set(data.items.map((item) => item.id))];
     const { data: products, error } = await supabase

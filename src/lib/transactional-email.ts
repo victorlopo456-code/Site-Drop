@@ -13,6 +13,12 @@ type EmailOrder = {
 };
 
 const statusContent: Record<string, { subject: string; title: string; message: string }> = {
+  payment_reminder: {
+    subject: "Seu pedido ainda está aguardando pagamento",
+    title: "Falta pouco para concluir seu pedido",
+    message:
+      "Seu pagamento ainda está pendente. Acesse sua conta para conferir o pedido antes que ele seja cancelado automaticamente.",
+  },
   payment_approved: {
     subject: "Pagamento confirmado",
     title: "Pagamento aprovado!",

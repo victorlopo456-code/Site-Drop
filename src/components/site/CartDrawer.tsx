@@ -154,13 +154,17 @@ export function CartDrawer() {
                   const { data } = (await supabase?.auth.getSession()) ?? {
                     data: { session: null },
                   };
-                  if (!data.session)
-                    return toast.error("Entre na sua conta para calcular o frete.");
+                  let visitorId = localStorage.getItem("drop-shipping-visitor");
+                  if (!visitorId) {
+                    visitorId = crypto.randomUUID();
+                    localStorage.setItem("drop-shipping-visitor", visitorId);
+                  }
                   setQuoting(true);
                   try {
                     const result = await quoteShipping({
                       data: {
-                        accessToken: data.session.access_token,
+                        accessToken: data.session?.access_token ?? null,
+                        visitorId,
                         cep,
                         items: items.map((item) => ({
                           id: item.productId,
