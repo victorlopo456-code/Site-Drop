@@ -26,6 +26,7 @@ import { Route as TrocasEDevolucoesRouteImport } from './routes/trocas-e-devoluc
 import { Route as ProdutoSlugRouteImport } from './routes/produto.$slug'
 import { Route as ApiMercadoPagoWebhookRouteImport } from './routes/api/mercado-pago/webhook'
 import { Route as ApiOrdersPaymentRemindersRouteImport } from './routes/api/orders/payment-reminders'
+import { Route as ApiSitemapXmlRouteImport } from './routes/api/sitemap.xml'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -113,6 +114,11 @@ const ApiOrdersPaymentRemindersRoute =
     path: '/api/orders/payment-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiSitemapXmlRoute = ApiSitemapXmlRouteImport.update({
+  id: '/api/sitemap/xml',
+  path: '/api/sitemap/xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
   '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
+  '/api/sitemap/xml': typeof ApiSitemapXmlRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
   '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
+  '/api/sitemap/xml': typeof ApiSitemapXmlRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   '/produto/$slug': typeof ProdutoSlugRoute
   '/api/mercado-pago/webhook': typeof ApiMercadoPagoWebhookRoute
   '/api/orders/payment-reminders': typeof ApiOrdersPaymentRemindersRoute
+  '/api/sitemap/xml': typeof ApiSitemapXmlRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -192,6 +201,7 @@ export interface FileRouteTypes {
     | '/produto/$slug'
     | '/api/mercado-pago/webhook'
     | '/api/orders/payment-reminders'
+    | '/api/sitemap/xml'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/produto/$slug'
     | '/api/mercado-pago/webhook'
     | '/api/orders/payment-reminders'
+    | '/api/sitemap/xml'
   id:
     | '__root__'
     | '/'
@@ -230,6 +241,7 @@ export interface FileRouteTypes {
     | '/produto/$slug'
     | '/api/mercado-pago/webhook'
     | '/api/orders/payment-reminders'
+    | '/api/sitemap/xml'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -250,6 +262,7 @@ export interface RootRouteChildren {
   ProdutoSlugRoute: typeof ProdutoSlugRoute
   ApiMercadoPagoWebhookRoute: typeof ApiMercadoPagoWebhookRoute
   ApiOrdersPaymentRemindersRoute: typeof ApiOrdersPaymentRemindersRoute
+  ApiSitemapXmlRoute: typeof ApiSitemapXmlRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -373,6 +386,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrdersPaymentRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sitemap/xml': {
+      id: '/api/sitemap/xml'
+      path: '/api/sitemap/xml'
+      fullPath: '/api/sitemap/xml'
+      preLoaderRoute: typeof ApiSitemapXmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -394,6 +414,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProdutoSlugRoute: ProdutoSlugRoute,
   ApiMercadoPagoWebhookRoute: ApiMercadoPagoWebhookRoute,
   ApiOrdersPaymentRemindersRoute: ApiOrdersPaymentRemindersRoute,
+  ApiSitemapXmlRoute: ApiSitemapXmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

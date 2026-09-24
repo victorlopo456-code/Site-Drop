@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
-import { useRouterState } from "@tanstack/react-router";
-import { Bot, ExternalLink, MessageCircle, PackageSearch, ShoppingBag, X } from "lucide-react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  Bot,
+  CreditCard,
+  ExternalLink,
+  MapPin,
+  MessageCircle,
+  PackageSearch,
+  Truck,
+  X,
+} from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import {
   defaultSiteSettings,
@@ -11,19 +20,29 @@ import {
 
 const supportOptions = [
   {
-    label: "Dúvida sobre produto",
-    icon: ShoppingBag,
-    message: "Olá! Vim pelo site da DROP e gostaria de tirar uma dúvida sobre um produto.",
+    label: "Entrega e frete",
+    icon: Truck,
+    answer:
+      "Você pode calcular o frete pelo CEP no carrinho ou no checkout, mesmo sem entrar na conta. O prazo aparece junto com cada opção.",
   },
   {
-    label: "Ajuda com meu pedido",
+    label: "Acompanhar pedido",
     icon: PackageSearch,
-    message: "Olá! Vim pelo site da DROP e preciso de ajuda com o meu pedido.",
+    answer:
+      "Entre em Minha conta e abra Meus pedidos. Lá você acompanha o status e pode abrir o rastreamento da transportadora.",
+    path: "/conta",
   },
   {
-    label: "Falar com o suporte",
-    icon: MessageCircle,
-    message: "Olá! Vim pelo assistente virtual do site da DROP e gostaria de atendimento.",
+    label: "Retirada na loja",
+    icon: MapPin,
+    answer:
+      "Escolha “Retirar na loja” no checkout. A retirada é gratuita e você será avisado quando o pedido estiver pronto.",
+  },
+  {
+    label: "Pagamento",
+    icon: CreditCard,
+    answer:
+      "O pagamento é processado com segurança pelo Mercado Pago. Você pode pagar usando as opções disponíveis no checkout.",
   },
 ] as const;
 
@@ -33,7 +52,9 @@ function supportUrl(phone: string, message: string) {
 
 export function VirtualAssistant() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
   const [settings, setSettings] = useState(defaultSiteSettings);
 
   useEffect(() => {
@@ -88,6 +109,12 @@ export function VirtualAssistant() {
               Olá! 👋 Eu sou o <strong>DropBot</strong>. Como posso ajudar você hoje?
             </div>
 
+            {answer && (
+              <div className="ml-auto max-w-[92%] rounded-2xl rounded-tr-sm border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed">
+                {answer}
+              </div>
+            )}
+
             <div className="space-y-2" aria-label="Opções de atendimento">
               {supportOptions.map((option) => {
                 const Icon = option.icon;
@@ -95,16 +122,39 @@ export function VirtualAssistant() {
                   <button
                     key={option.label}
                     type="button"
-                    onClick={() => openWhatsApp(option.message)}
+                    onClick={() => {
+                      setAnswer(option.answer);
+                      if ("path" in option && option.path) {
+                        window.setTimeout(() => {
+                          setOpen(false);
+                          void navigate({ to: option.path });
+                        }, 900);
+                      }
+                    }}
                     className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-3 text-left text-sm transition-colors hover:border-primary hover:bg-primary/5"
                   >
                     <Icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />
                     <span className="flex-1 font-medium">{option.label}</span>
-                    <ExternalLink className="h-4 w-4 text-muted-foreground" aria-hidden />
+                    <span className="text-primary" aria-hidden>
+                      ›
+                    </span>
                   </button>
                 );
               })}
             </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                openWhatsApp(
+                  `Olá! Vim pelo DropBot e preciso de ajuda. Estou na página ${window.location.href}`,
+                )
+              }
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-display text-sm uppercase text-white transition-opacity hover:opacity-90"
+            >
+              <MessageCircle className="h-5 w-5" /> Falar com atendente
+              <ExternalLink className="h-4 w-4" />
+            </button>
 
             <p className="text-center text-[11px] text-muted-foreground">
               Ao escolher uma opção, você continuará o atendimento no WhatsApp.

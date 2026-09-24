@@ -5,7 +5,9 @@ import logo from "@/assets/logo-drop.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { formatBRL, searchProducts } from "@/lib/catalog";
+import { formatBRL } from "@/lib/catalog";
+import { smartSearchProducts } from "@/lib/product-search";
+import { useProducts } from "@/lib/store";
 import { useTaxonomy } from "@/lib/taxonomy";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,8 @@ function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
   const [focused, setFocused] = useState(false);
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
-  const results = searchProducts(query);
+  const products = useProducts();
+  const results = smartSearchProducts(products, query, 8);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -68,7 +71,9 @@ function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
       {focused && query.trim().length > 0 && (
         <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-lg border border-border bg-popover shadow-card">
           {results.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">Nenhum resultado para "{query}"</p>
+            <p className="p-4 text-sm text-muted-foreground">
+              Nenhum resultado para “{query}”. Tente uma marca, categoria ou SKU.
+            </p>
           ) : (
             <ul className="max-h-96 overflow-y-auto">
               {results.map((p) => (

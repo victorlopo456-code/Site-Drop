@@ -145,6 +145,32 @@ function ProductPage() {
   const reviewAverage = reviews.length
     ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
     : 0;
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: product.images,
+    description: product.description,
+    sku: product.sku,
+    brand: { "@type": "Brand", name: product.brand },
+    offers: {
+      "@type": "Offer",
+      url: `https://drop-skate-shop.vercel.app/produto/${product.slug}`,
+      priceCurrency: "BRL",
+      price: product.price.toFixed(2),
+      availability: soldOut ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+    ...(reviews.length
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: reviewAverage.toFixed(1),
+            reviewCount: reviews.length,
+          },
+        }
+      : {}),
+  };
 
   const related = all
     .filter((p) => p.category === product.category && p.id !== product.id)
@@ -153,6 +179,12 @@ function ProductPage() {
 
   return (
     <div className="container-drop py-6 sm:py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
+      />
       <nav className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] uppercase tracking-wider text-muted-foreground sm:text-xs sm:tracking-widest">
         <Link to="/" className="hover:text-primary">
           Home

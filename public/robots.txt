@@ -4,3 +4,4 @@ Disallow: /conta
 Disallow: /checkout
 Disallow: /admin
 Disallow: /entrar
+Sitemap: https://drop-skate-shop.vercel.app/api/sitemap/xml

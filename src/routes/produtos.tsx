@@ -4,6 +4,7 @@ import { ProductCard } from "@/components/site/ProductCard";
 import { Button } from "@/components/ui/button";
 import { useTaxonomy } from "@/lib/taxonomy";
 import { useProducts } from "@/lib/store";
+import { smartSearchProducts } from "@/lib/product-search";
 
 type ProductSearch = { q: string; cat: string; marca: string };
 
@@ -47,13 +48,11 @@ function ProductsPage() {
   const products = useProducts();
 
   const list = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    let result = products.filter((p) => {
-      const matchQuery =
-        !query || [p.name, p.brand, p.category, p.sku].some((f) => f.toLowerCase().includes(query));
+    const searched = q.trim() ? smartSearchProducts(products, q) : products;
+    let result = searched.filter((p) => {
       const matchCat = !cat || p.category === cat;
       const matchBrand = !marca || p.brand === marca;
-      return matchQuery && matchCat && matchBrand;
+      return matchCat && matchBrand;
     });
     if (sort === "menor-preco") result = [...result].sort((a, b) => a.price - b.price);
     if (sort === "maior-preco") result = [...result].sort((a, b) => b.price - a.price);
