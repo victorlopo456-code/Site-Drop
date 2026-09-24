@@ -32,7 +32,11 @@ export function MobileBottomNav() {
           <LayoutGrid className="h-5 w-5" />
           <span>Produtos</span>
         </Link>
-        <Link to="/conta" className={itemClass(pathname === "/conta")}>
+        <Link
+          to="/conta"
+          search={{ tab: "favoritos" }}
+          className={itemClass(pathname === "/conta")}
+        >
           <span className="relative">
             <Heart className="h-5 w-5" />
             {favorites.length > 0 && (

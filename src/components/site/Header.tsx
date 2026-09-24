@@ -321,7 +321,7 @@ export function Header() {
             aria-label="Favoritos"
             className="hidden lg:inline-flex"
           >
-            <Link to="/conta" className="relative">
+            <Link to="/conta" search={{ tab: "favoritos" }} className="relative">
               <Heart />
               {favorites.length > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">

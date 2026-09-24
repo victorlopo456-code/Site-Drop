@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { loadProductForPage } from "@/lib/catalog-supabase";
 import {
   canReviewProduct,
   loadProductReviews,
@@ -39,8 +40,10 @@ import {
 } from "@/lib/product-reviews";
 
 export const Route = createFileRoute("/produto/$slug")({
-  loader: ({ params }: { params: { slug: string } }) => {
-    const product = getProduct(params.slug);
+  loader: async ({ params }: { params: { slug: string } }) => {
+    const product =
+      (await loadProductForPage({ data: { slug: params.slug } }).catch(() => null)) ??
+      getProduct(params.slug);
     return { product: product ?? null, slug: params.slug };
   },
   head: ({ loaderData }) => {

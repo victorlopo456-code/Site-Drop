@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { z } from "zod";
 import {
   Bell,
   Check,
@@ -50,6 +51,23 @@ import {
 } from "@/lib/customer-account";
 
 export const Route = createFileRoute("/conta")({
+  validateSearch: z.object({
+    tab: z
+      .enum([
+        "pedidos",
+        "favoritos",
+        "enderecos",
+        "cartoes",
+        "perfil",
+        "senha",
+        "vistos",
+        "trocas",
+        "devolucoes",
+        "notificacoes",
+      ])
+      .optional()
+      .catch("pedidos"),
+  }),
   head: () => ({
     meta: [
       { title: "Minha conta — DROP Skate Shop" },
@@ -140,6 +158,9 @@ const emptyAddress = {
 };
 
 function Account({ user }: { user: SupabaseUser }) {
+  const { tab } = Route.useSearch();
+  const [activePanel, setActivePanel] = useState(tab ?? "pedidos");
+  useEffect(() => setActivePanel(tab ?? "pedidos"), [tab]);
   const { favorites } = useCart();
   const products = useProducts();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -290,7 +311,11 @@ function Account({ user }: { user: SupabaseUser }) {
           <LogOut className="h-4 w-4" /> Sair
         </Button>
       </div>
-      <Tabs defaultValue="pedidos" className="mt-8 gap-6 lg:grid lg:grid-cols-[240px_1fr]">
+      <Tabs
+        value={activePanel}
+        onValueChange={(value) => setActivePanel(value as typeof activePanel)}
+        className="mt-8 gap-6 lg:grid lg:grid-cols-[240px_1fr]"
+      >
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0 lg:flex-col lg:items-stretch">
           {panels.map(({ value, label, icon: Icon }) => (
             <TabsTrigger

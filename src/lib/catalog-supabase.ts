@@ -1,5 +1,8 @@
 import { imageFor, type Product, type Promotion, type Variant } from "@/lib/catalog";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 
 type ProductRow = {
   id: string;
@@ -82,6 +85,25 @@ function fromRow(row: ProductRow): Product | null {
     },
   };
 }
+
+export const loadProductForPage = createServerFn({ method: "GET" })
+  .validator(z.object({ slug: z.string().trim().min(1).max(200) }))
+  .handler(async ({ data }) => {
+    const url = process.env.VITE_SUPABASE_URL?.trim();
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    if (!url || !key) return null;
+    const supabase = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: row, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("slug", data.slug)
+      .eq("enabled", true)
+      .maybeSingle();
+    if (error || !row) return null;
+    return fromRow(row as ProductRow);
+  });
 
 export async function loadCatalogFromSupabase(): Promise<Product[] | null> {
   const supabase = getSupabaseBrowserClient();
