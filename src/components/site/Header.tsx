@@ -314,7 +314,13 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-0 sm:gap-1">
-          <Button variant="ghost" size="icon" asChild aria-label="Favoritos">
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
+            aria-label="Favoritos"
+            className="hidden lg:inline-flex"
+          >
             <Link to="/conta" className="relative">
               <Heart />
               {favorites.length > 0 && (
@@ -332,6 +338,7 @@ export function Header() {
               disabled={signingOut}
               aria-label="Sair da conta"
               title="Sair da conta"
+              className="hidden lg:inline-flex"
               onClick={async () => {
                 const supabase = getSupabaseBrowserClient();
                 if (!supabase) return;
@@ -351,7 +358,9 @@ export function Header() {
             size={userName ? "default" : "icon"}
             asChild
             aria-label={userName ? `Minha conta, ${userName}` : "Entrar ou criar conta"}
-            className={userName ? "max-w-36 gap-2 px-2 sm:px-3" : undefined}
+            className={
+              userName ? "hidden max-w-36 gap-2 px-3 lg:inline-flex" : "hidden lg:inline-flex"
+            }
           >
             <Link to={userName ? "/conta" : "/entrar"}>
               <User />

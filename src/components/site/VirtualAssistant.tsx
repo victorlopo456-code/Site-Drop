@@ -78,13 +78,13 @@ export function VirtualAssistant() {
   };
 
   return (
-    <aside className="fixed bottom-4 right-4 z-50 flex flex-col items-end sm:bottom-6 sm:right-6">
+    <aside className="fixed bottom-20 right-3 z-50 flex flex-col items-end sm:right-4 lg:bottom-6 lg:right-6">
       {open && (
         <section
           id="drop-virtual-assistant"
           role="dialog"
           aria-label="Assistente virtual da DROP"
-          className="mb-3 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+          className="mb-3 max-h-[calc(100vh-7rem)] w-[calc(100vw-1.5rem)] max-w-sm overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"
         >
           <header className="flex items-center gap-3 bg-primary px-4 py-3 text-primary-foreground">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-foreground/15">
@@ -171,7 +171,7 @@ export function VirtualAssistant() {
         aria-expanded={open}
         aria-controls="drop-virtual-assistant"
         aria-label={open ? "Fechar assistente virtual" : "Abrir assistente virtual"}
-        className="group relative flex h-14 items-center gap-2 rounded-full border border-primary/40 bg-primary px-4 text-primary-foreground shadow-ember transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-16 sm:px-5"
+        className="group relative flex h-12 items-center gap-2 rounded-full border border-primary/40 bg-primary px-3 text-primary-foreground shadow-ember transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-14 sm:px-4 lg:h-16 lg:px-5"
       >
         {open ? <X className="h-6 w-6" /> : <WhatsAppIcon className="h-7 w-7" />}
         <span className="font-display text-xs uppercase sm:text-sm">

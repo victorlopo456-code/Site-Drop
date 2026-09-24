@@ -18,6 +18,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { CartDrawer } from "@/components/site/CartDrawer";
 import { VirtualAssistant } from "@/components/site/VirtualAssistant";
+import { MobileBottomNav } from "@/components/site/MobileBottomNav";
 import { CartProvider } from "@/lib/cart";
 import { Toaster } from "@/components/ui/sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -140,7 +141,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CartProvider>
         <AnalyticsTracker />
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-screen flex-col pb-16 lg:pb-0">
           <Header />
           <main className="flex-1">
             {/* Required: nested routes render here. */}
@@ -149,6 +150,7 @@ function RootComponent() {
           <Footer />
         </div>
         <CartDrawer />
+        <MobileBottomNav />
         <VirtualAssistant />
         <Toaster position="top-center" />
       </CartProvider>
