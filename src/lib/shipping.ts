@@ -20,6 +20,11 @@ const quoteSchema = z.object({
   items: itemsSchema,
 });
 
+const pickupQuoteSchema = z.object({
+  accessToken: z.string().min(20).max(10_000),
+  items: itemsSchema,
+});
+
 export type ShippingOption = {
   id: string;
   label: string;
@@ -101,13 +106,46 @@ export async function verifyShippingQuote(
   }
   if (payload.expiresAt < Date.now())
     throw new Error("A cotação de frete expirou. Calcule novamente.");
-  if (payload.cep !== cep || payload.items !== itemFingerprint(items)) {
+  const expectedCep = payload.serviceId === "store-pickup" ? "pickup" : cep;
+  if (payload.cep !== expectedCep || payload.items !== itemFingerprint(items)) {
     throw new Error("O endereço ou o carrinho mudou. Calcule o frete novamente.");
   }
   if (!Number.isFinite(payload.price) || payload.price < 0)
     throw new Error("Valor de frete inválido.");
   return payload;
 }
+
+export const quoteStorePickup = createServerFn({ method: "POST" })
+  .validator(pickupQuoteSchema)
+  .handler(async ({ data }) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim();
+    const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    if (!supabaseUrl || !serviceRole) throw new Error("Backend do Supabase não configurado.");
+    const supabase = createClient(supabaseUrl, serviceRole, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: auth, error } = await supabase.auth.getUser(data.accessToken);
+    if (error || !auth.user) throw new Error("Entre na sua conta para escolher a retirada.");
+    await enforceRateLimit(supabase, auth.user.id, "shipping-quote", 30, 10 * 60);
+
+    const payload: QuotePayload = {
+      serviceId: "store-pickup",
+      label: "Retirar na loja",
+      price: 0,
+      days: 0,
+      cep: "pickup",
+      items: itemFingerprint(data.items),
+      expiresAt: Date.now() + 15 * 60 * 1000,
+    };
+    return {
+      id: payload.serviceId,
+      label: payload.label,
+      company: "DROP Skate Shop",
+      price: 0,
+      days: 0,
+      token: await createQuoteToken(payload, serviceRole),
+    } satisfies ShippingOption;
+  });
 
 export const quoteShipping = createServerFn({ method: "POST" })
   .validator(quoteSchema)

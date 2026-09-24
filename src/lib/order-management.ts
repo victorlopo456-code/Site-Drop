@@ -87,12 +87,25 @@ export async function loadAdminOrders(): Promise<AdminOrder[]> {
 export async function loadCustomerOrders(): Promise<AdminOrder[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) throw new Error("Supabase não configurado.");
+  const visibleQuery = await supabase
+    .from("orders")
+    .select("*,order_items(*)")
+    .is("customer_hidden_at", null)
+    .order("created_at", { ascending: false });
+  if (!visibleQuery.error) return (visibleQuery.data ?? []) as AdminOrder[];
+
+  // Mantém compatibilidade enquanto a migration ainda não foi aplicada.
+  if (visibleQuery.error.code !== "42703") throw new Error(visibleQuery.error.message);
   const { data, error } = await supabase
     .from("orders")
     .select("*,order_items(*)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as AdminOrder[];
+  const expiration = Date.now() - 48 * 60 * 60 * 1000;
+  return (data ?? []).filter(
+    (order) =>
+      order.status !== "awaiting_payment" || new Date(order.created_at).getTime() > expiration,
+  ) as AdminOrder[];
 }
 
 export async function updateAdminOrder(

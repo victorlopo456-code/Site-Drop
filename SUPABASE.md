@@ -2,6 +2,12 @@
 
 O site funciona com os benefícios padrão enquanto o Supabase não estiver configurado.
 
+## Expiração de pedidos pendentes
+
+Execute `supabase/migrations/20260924010000_expire_unpaid_orders.sql` no SQL Editor. A migration
+ativa o Supabase Cron, cancela e oculta pedidos sem pagamento após 48 horas e remove esses registros
+após 90 dias. A tarefa roda a cada hora e não depende de um Cron Job da Vercel.
+
 ## 1. Criar e configurar o projeto
 
 1. Crie um projeto no Supabase.

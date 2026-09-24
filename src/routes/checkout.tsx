@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createMercadoPagoCheckout } from "@/lib/mercado-pago";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { quoteShipping, type ShippingOption } from "@/lib/shipping";
+import { quoteShipping, quoteStorePickup, type ShippingOption } from "@/lib/shipping";
 import { getAnalyticsAttribution, trackAnalyticsEvent } from "@/lib/analytics";
 import { loadAddresses, type CustomerAddress } from "@/lib/customer-account";
 
@@ -74,6 +74,13 @@ const formSchema = z.object({
   cidade: z.string().trim().min(2, "Informe a cidade").max(100),
 });
 
+const pickupFormSchema = formSchema.extend({
+  cep: z.string().max(9),
+  endereco: z.string().max(200),
+  numero: z.string().max(10),
+  cidade: z.string().max(100),
+});
+
 function Checkout() {
   const { items, subtotal, discount, coupon } = useCart();
   const [step, setStep] = useState(0);
@@ -82,6 +89,7 @@ function Checkout() {
   const [shippingMessage, setShippingMessage] = useState("");
   const [quoting, setQuoting] = useState(false);
   const [lookingUpCep, setLookingUpCep] = useState(false);
+  const [selectingPickup, setSelectingPickup] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
   const [loadingCustomer, setLoadingCustomer] = useState(true);
@@ -276,12 +284,38 @@ function Checkout() {
     }
   };
 
+  const selectStorePickup = async () => {
+    const supabase = getSupabaseBrowserClient();
+    const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+    if (!data.session) return toast.error("Entre na sua conta para escolher a retirada.");
+    setSelectingPickup(true);
+    try {
+      const option = await quoteStorePickup({
+        data: {
+          accessToken: data.session.access_token,
+          items: items.map((item) => ({
+            id: item.productId,
+            variantId: item.variantId,
+            qty: item.qty,
+          })),
+        },
+      });
+      setShipping(option);
+      setShippingMessage("Retirada gratuita. Combinaremos os detalhes após a confirmação.");
+      setStep(2);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível escolher a retirada.");
+    } finally {
+      setSelectingPickup(false);
+    }
+  };
+
   const finish = async () => {
     if (!shipping) {
       toast.error("Calcule e escolha uma opção de frete.");
       return;
     }
-    const parsed = formSchema.safeParse({
+    const parsed = (shipping.id === "store-pickup" ? pickupFormSchema : formSchema).safeParse({
       ...form,
       cpf: form.cpf.replace(/\D/g, ""),
       cep: form.cep.replace(/\D/g, ""),
@@ -485,6 +519,32 @@ function Checkout() {
 
           <section className="rounded-lg border border-border bg-card p-4 sm:p-6">
             <h2 className="font-display text-lg uppercase">3. Entrega</h2>
+            <button
+              type="button"
+              disabled={selectingPickup}
+              onClick={() => void selectStorePickup()}
+              className={cn(
+                "mt-4 flex w-full items-center justify-between rounded-md border px-4 py-3 text-left text-sm transition-colors",
+                shipping?.id === "store-pickup"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/60",
+              )}
+            >
+              <span>
+                <strong className="block">Retirar na loja</strong>
+                <span className="text-xs text-muted-foreground">
+                  Sem frete · detalhes após a confirmação
+                </span>
+              </span>
+              {selectingPickup ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <strong className="text-primary">Grátis</strong>
+              )}
+            </button>
+            <p className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
+              Ou receba no seu endereço
+            </p>
             <Button
               type="button"
               variant="surface"

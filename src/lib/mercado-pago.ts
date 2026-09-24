@@ -24,10 +24,10 @@ const checkoutSchema = z.object({
     nome: z.string().trim().min(3).max(100),
     email: z.string().trim().email().max(255),
     cpf: z.string().regex(/^\d{11}$/),
-    cep: z.string().regex(/^\d{8}$/),
-    endereco: z.string().trim().min(3).max(200),
-    numero: z.string().trim().min(1).max(10),
-    cidade: z.string().trim().min(2).max(100),
+    cep: z.string().max(8),
+    endereco: z.string().trim().max(200),
+    numero: z.string().trim().max(10),
+    cidade: z.string().trim().max(100),
   }),
   analytics: z
     .object({
@@ -109,6 +109,16 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
       data.buyer.cep,
       normalizedItems,
     );
+    const storePickup = shipping.serviceId === "store-pickup";
+    if (
+      !storePickup &&
+      (!/^\d{8}$/.test(data.buyer.cep) ||
+        data.buyer.endereco.trim().length < 3 ||
+        !data.buyer.numero.trim() ||
+        data.buyer.cidade.trim().length < 2)
+    ) {
+      throw new Error("Informe um endereço de entrega válido.");
+    }
     const shippingCost = money(shipping.price);
     const orderId = crypto.randomUUID();
 
@@ -152,10 +162,11 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
       buyer_email: data.buyer.email,
       buyer_cpf: data.buyer.cpf,
       shipping_address: {
-        cep: data.buyer.cep,
-        endereco: data.buyer.endereco,
-        numero: data.buyer.numero,
-        cidade: data.buyer.cidade,
+        tipo: storePickup ? "retirada" : "entrega",
+        cep: storePickup ? "" : data.buyer.cep,
+        endereco: storePickup ? "Retirada na loja" : data.buyer.endereco,
+        numero: storePickup ? "" : data.buyer.numero,
+        cidade: storePickup ? "" : data.buyer.cidade,
       },
     });
     if (orderError) throw new Error(`Não foi possível criar o pedido: ${orderError.message}`);
@@ -225,6 +236,8 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
         },
         external_reference: orderId,
         ...returnConfiguration,
+        expires: true,
+        expiration_date_to: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
         statement_descriptor: "DROP SKATE SHOP",
       }),
     });
