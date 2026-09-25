@@ -28,9 +28,14 @@ function editDistance(left: string, right: string) {
 }
 
 function productScore(product: Product, query: string) {
-  const fields = [product.name, product.brand, product.category, product.sku, product.id].map(
-    normalize,
-  );
+  const fields = [
+    product.name,
+    product.brand,
+    product.category,
+    product.sku,
+    product.id,
+    ...(product.variants ?? []).flatMap((variant) => [variant.size, variant.color]),
+  ].map(normalize);
   const words = fields.flatMap((field) => field.split(" "));
   const terms = normalize(query).split(" ").filter(Boolean);
   if (!terms.length) return 0;
