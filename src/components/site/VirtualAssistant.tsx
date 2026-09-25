@@ -235,8 +235,51 @@ export function VirtualAssistant() {
     await new Promise((resolve) => window.setTimeout(resolve, 450));
     try {
       const value = normalize(text);
+      const words = value
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
       const cep = value.replace(/\D/g, "").match(/\d{8}/)?.[0];
       if (
+        /^(oi|ola|e ai)( bom dia| boa tarde| boa noite)?( tudo bem)?$/.test(words) ||
+        /^(bom dia|boa tarde|boa noite)( tudo bem)?$/.test(words)
+      ) {
+        const greeting = words.includes("bom dia")
+          ? "Bom dia"
+          : words.includes("boa tarde")
+            ? "Boa tarde"
+            : words.includes("boa noite")
+              ? "Boa noite"
+              : "Olá";
+        addBot({
+          text: `${greeting}${userName ? `, ${userName}` : ""}! Tudo bem? Posso ajudar a encontrar produtos, calcular frete, consultar seu pedido, explicar pagamentos, retirada, trocas e tamanhos. O que você precisa?`,
+        });
+      } else if (words.includes("tudo bem")) {
+        addBot({
+          text: `Tudo ótimo por aqui${userName ? `, ${userName}` : ""}! 😊 E com você? Como posso ajudar na sua compra hoje?`,
+        });
+      } else if (
+        words.includes("o que voce faz") ||
+        words.includes("como pode ajudar") ||
+        words.includes("o que posso ajudar") ||
+        words === "ajuda" ||
+        words === "me ajude"
+      ) {
+        addBot({
+          text: "Posso buscar produtos e tamanhos, verificar estoque, calcular frete pelo CEP, resumir seu carrinho, consultar o último pedido e explicar pagamento, retirada, trocas e devoluções.",
+        });
+      } else if (
+        words.includes("produto original") ||
+        words.includes("produtos originais") ||
+        words.includes("sao originais") ||
+        words.includes("e original") ||
+        words.includes("autentico") ||
+        words.includes("falsificado")
+      ) {
+        addBot({
+          text: "Sim. Os produtos vendidos pela DROP Skate Shop são originais, selecionados de fornecedores confiáveis e possuem garantia contra defeitos de fabricação conforme as condições informadas na página do produto.",
+        });
+      } else if (
         cep &&
         (value.includes("cep") || value.includes("frete") || /^\D*\d{5}-?\d{3}\D*$/.test(text))
       )
