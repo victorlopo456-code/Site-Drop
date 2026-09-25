@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email-provider";
 
 type EmailOrder = {
   id: string;
@@ -63,8 +64,6 @@ export async function sendOrderEmail(
   order: EmailOrder,
   event: keyof typeof statusContent,
 ) {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.ORDER_EMAIL_FROM?.trim();
   const siteUrl = (process.env.SITE_URL ?? "https://drop-skate-shop.vercel.app").replace(/\/$/, "");
   const storePickup =
     order.shipping_method?.trim().toLocaleLowerCase("pt-BR") === "retirar na loja";
@@ -83,7 +82,7 @@ export async function sendOrderEmail(
       }
     : null;
   const content = pickupContent?.[event as "shipped" | "delivered"] ?? statusContent[event];
-  if (!apiKey || !from || !content) return { sent: false, reason: "not_configured" };
+  if (!content) return { sent: false, reason: "not_configured" };
 
   const eventKey = `${event}-${order.tracking_code ?? "none"}`.slice(0, 180);
   const { error: reserveError } = await supabase.from("order_email_deliveries").insert({
@@ -101,25 +100,16 @@ export async function sendOrderEmail(
   const html = `<!doctype html><html><body style="margin:0;background:#111;color:#f5f5f5;font-family:Arial,sans-serif"><div style="max-width:600px;margin:auto;padding:32px 20px"><p style="color:#f57c00;font-weight:bold;letter-spacing:2px">DROP SKATE SHOP</p><h1>${content.title}</h1><p>Olá, ${escapeHtml(order.buyer_name)}.</p><p>${content.message}</p>${tracking}<p><strong>Pedido:</strong> #DRP${order.order_number}</p><p><strong>Total:</strong> ${Number(order.total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p><a href="${siteUrl}/conta" style="display:inline-block;margin-top:18px;padding:13px 20px;background:#f57c00;color:#111;text-decoration:none;font-weight:bold;border-radius:6px">ACOMPANHAR PEDIDO</a><p style="margin-top:32px;color:#999;font-size:12px">Mensagem automática da DROP Skate Shop.</p></div></body></html>`;
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": `order-${order.id}-${eventKey}`,
-      },
-      body: JSON.stringify({
-        from,
-        to: [order.buyer_email],
-        subject: `${content.subject} · Pedido #DRP${order.order_number}`,
-        html,
-      }),
+    const result = await sendEmail({
+      to: order.buyer_email,
+      subject: `${content.subject} · Pedido #DRP${order.order_number}`,
+      html,
+      idempotencyKey: `order-${order.id}-${eventKey}`,
     });
-    const result = (await response.json()) as { id?: string; message?: string };
-    if (!response.ok || !result.id) throw new Error(result.message ?? "Falha no envio.");
+    if (!result.sent) throw new Error("Envio de e-mail não configurado.");
     await supabase
       .from("order_email_deliveries")
-      .update({ status: "sent", provider_id: result.id, sent_at: new Date().toISOString() })
+      .update({ status: "sent", provider_id: result.providerId, sent_at: new Date().toISOString() })
       .eq("order_id", order.id)
       .eq("event_key", eventKey);
     return { sent: true };
