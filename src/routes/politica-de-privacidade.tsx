@@ -39,6 +39,10 @@ function PrivacyPage() {
           <li>CPF e endereço necessários ao pagamento, faturamento e entrega.</li>
           <li>Informações do pedido, produtos, valores e histórico de atendimento.</li>
           <li>
+            E-mail e itens do carrinho, quando você solicitar lembrete de carrinho ou aviso de
+            reposição de produto.
+          </li>
+          <li>
             Métricas de navegação, como páginas e produtos vistos, adição ao carrinho e origem da
             campanha. Essas métricas não armazenam nome, e-mail nem endereço IP.
           </li>
@@ -52,7 +56,8 @@ function PrivacyPage() {
         <p>
           Usamos os dados para criar e proteger sua conta, processar compras e pagamentos, entregar
           pedidos, prestar suporte, prevenir fraude, cumprir obrigações legais e exercer direitos em
-          processos. Comunicações promocionais dependem da base legal aplicável e podem ser
+          processos. Lembretes de carrinho e avisos de reposição são enviados quando solicitados
+          pelo cliente. Comunicações promocionais dependem da base legal aplicável e podem ser
           interrompidas a qualquer momento.
         </p>
       </InstitutionalSection>

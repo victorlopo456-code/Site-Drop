@@ -25,6 +25,10 @@ async function validSignature(request: Request, dataId: string, secret: string) 
     }),
   );
   if (!parts.ts || !parts.v1 || !requestId || !dataId) return false;
+  const timestamp = Number(parts.ts);
+  if (!Number.isInteger(timestamp)) return false;
+  // Impede que uma notificação assinada e capturada seja repetida muito tempo depois.
+  if (Math.abs(Date.now() - timestamp * 1_000) > 5 * 60 * 1_000) return false;
   const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${parts.ts};`;
   const key = await crypto.subtle.importKey(
     "raw",
@@ -51,7 +55,15 @@ export const Route = createFileRoute("/api/mercado-pago/webhook")({
 
         let body: { type?: string; data?: { id?: string | number } } = {};
         try {
-          body = (await request.json()) as typeof body;
+          const contentLength = Number(request.headers.get("content-length") ?? 0);
+          if (contentLength > 32_768) {
+            return Response.json({ error: "Requisição muito grande" }, { status: 413 });
+          }
+          const rawBody = await request.text();
+          if (rawBody.length > 32_768) {
+            return Response.json({ error: "Requisição muito grande" }, { status: 413 });
+          }
+          body = JSON.parse(rawBody) as typeof body;
         } catch {
           return Response.json({ error: "JSON inválido" }, { status: 400 });
         }

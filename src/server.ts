@@ -11,6 +11,8 @@ function withSecurityHeaders(request: Request, response: Response): Response {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
+  headers.set("X-Permitted-Cross-Domain-Policies", "none");
+  headers.set("Origin-Agent-Cluster", "?1");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
   headers.set("Cross-Origin-Opener-Policy", "same-origin");
@@ -28,6 +30,8 @@ function withSecurityHeaders(request: Request, response: Response): Response {
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://viacep.com.br",
+      "worker-src 'self' blob:",
+      "media-src 'none'",
       "manifest-src 'self'",
       "upgrade-insecure-requests",
     ].join("; "),

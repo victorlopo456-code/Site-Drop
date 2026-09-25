@@ -1,3 +1,5 @@
+import { sendEmail } from "@/lib/email-provider";
+
 function escapeHtml(value: string) {
   return value.replace(
     /[&<>"]/g,
@@ -26,4 +28,3 @@ export async function sendMarketingEmail(input: {
   });
   return result.sent;
 }
-import { sendEmail } from "@/lib/email-provider";
