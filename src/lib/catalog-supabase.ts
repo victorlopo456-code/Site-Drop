@@ -46,6 +46,45 @@ function encodeImageReference(value: string, category: string) {
     : value;
 }
 
+function toRow(product: Product) {
+  return {
+    sku: product.sku,
+    slug: product.slug,
+    name: product.name,
+    brand: product.brand,
+    category: product.category,
+    price: product.price,
+    base_price: product.basePrice ?? null,
+    compare_at: product.compareAt ?? null,
+    rating: product.rating,
+    reviews: product.reviews,
+    stock: product.stock,
+    sold_out: Boolean(product.soldOut),
+    variants: product.variants ?? [],
+    promotion: product.promotion ?? null,
+    images: product.images.map((image) => encodeImageReference(image, product.category)),
+    description: product.description,
+    specs: product.specs,
+    tags: product.tags,
+    weight_kg: product.shipping?.weightKg ?? 0.5,
+    width_cm: product.shipping?.widthCm ?? 20,
+    height_cm: product.shipping?.heightCm ?? 10,
+    length_cm: product.shipping?.lengthCm ?? 30,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function requireCatalogClient() {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) throw new Error("Supabase não configurado.");
+  return supabase;
+}
+
+function catalogError(error: { code?: string; message: string }) {
+  if (error.code === "23505") return "Já existe um produto com este SKU ou endereço.";
+  return error.message;
+}
+
 function fromRow(row: ProductRow): Product | null {
   if (!Array.isArray(row.images) || !row.images.every((image) => typeof image === "string")) {
     return null;
@@ -116,59 +155,37 @@ export async function loadCatalogFromSupabase(): Promise<Product[] | null> {
   return (data as ProductRow[]).map(fromRow).filter((item): item is Product => item !== null);
 }
 
-export async function saveCatalogToSupabase(products: Product[]): Promise<boolean> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) return false;
-
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return false;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", auth.user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin") return false;
-
-  const now = new Date().toISOString();
-  const rows = products.map((product, sortOrder) => ({
+export async function createProductInSupabase(product: Product) {
+  const supabase = await requireCatalogClient();
+  const { error } = await supabase.from("products").insert({
     id: product.id,
-    sku: product.sku,
-    slug: product.slug,
-    name: product.name,
-    brand: product.brand,
-    category: product.category,
-    price: product.price,
-    base_price: product.basePrice ?? null,
-    compare_at: product.compareAt ?? null,
-    rating: product.rating,
-    reviews: product.reviews,
-    stock: product.stock,
-    sold_out: Boolean(product.soldOut),
-    variants: product.variants ?? [],
-    promotion: product.promotion ?? null,
-    images: product.images.map((image) => encodeImageReference(image, product.category)),
-    description: product.description,
-    specs: product.specs,
-    tags: product.tags,
-    weight_kg: product.shipping?.weightKg ?? 0.5,
-    width_cm: product.shipping?.widthCm ?? 20,
-    height_cm: product.shipping?.heightCm ?? 10,
-    length_cm: product.shipping?.lengthCm ?? 30,
-    sort_order: sortOrder,
+    ...toRow(product),
+    sort_order: 0,
     enabled: true,
-    updated_at: now,
-    updated_by: auth.user.id,
-  }));
+  });
+  if (error) throw new Error(catalogError(error));
+}
 
-  const { error } = await supabase.from("products").upsert(rows, { onConflict: "id" });
-  if (error) {
-    console.error("Falha ao salvar catálogo no Supabase:", error.message);
-    return false;
-  }
+export async function updateProductInSupabase(product: Product) {
+  const supabase = await requireCatalogClient();
+  const { data, error } = await supabase
+    .from("products")
+    .update(toRow(product))
+    .eq("id", product.id)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(catalogError(error));
+  if (!data) throw new Error("Produto não encontrado no banco de dados.");
+}
 
-  const { data: existing } = await supabase.from("products").select("id");
-  const keep = new Set(products.map((product) => product.id));
-  const removed = (existing ?? []).map((row) => row.id as string).filter((id) => !keep.has(id));
-  if (removed.length) await supabase.from("products").delete().in("id", removed);
-  return true;
+export async function deleteProductInSupabase(id: string) {
+  const supabase = await requireCatalogClient();
+  const { data, error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Produto não encontrado no banco de dados.");
 }

@@ -10,7 +10,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  RotateCcw,
   Save,
   Trash2,
   TrendingUp,
@@ -30,7 +29,7 @@ import { discountPercent, formatBRL, isOutOfStock, totalStock, type Product } fr
 import {
   isPromotionActive,
   removeProduct,
-  resetCatalog,
+  importProductsFromThisBrowser,
   schedulePromotion,
   setStock,
   setVariantStock,
@@ -1818,12 +1817,26 @@ function AdminPage() {
             <Button
               variant="surface"
               size="sm"
-              onClick={() => {
-                resetCatalog();
-                toast.success("Catálogo restaurado ao padrão.");
+              onClick={async () => {
+                try {
+                  const result = await importProductsFromThisBrowser();
+                  if (result.imported) {
+                    toast.success(
+                      `${result.imported} produto${result.imported === 1 ? "" : "s"} recuperado${result.imported === 1 ? "" : "s"} e salvo${result.imported === 1 ? "" : "s"} no banco.`,
+                    );
+                  } else {
+                    toast.info("Este navegador não possui produtos diferentes para importar.");
+                  }
+                  if (result.failed)
+                    toast.error(`${result.failed} produto(s) não puderam ser importados.`);
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error ? error.message : "Não foi possível importar.",
+                  );
+                }
               }}
             >
-              <RotateCcw className="h-4 w-4" /> Restaurar catálogo
+              Importar deste navegador
             </Button>
           </div>
 
@@ -1887,9 +1900,18 @@ function AdminPage() {
                         variant="ghost"
                         size="sm"
                         aria-label={`Remover ${p.name}`}
-                        onClick={() => {
-                          removeProduct(p.id);
-                          toast.success(`${p.name} removido.`);
+                        onClick={async () => {
+                          if (!window.confirm(`Remover ${p.name} do banco de dados?`)) return;
+                          try {
+                            await removeProduct(p.id);
+                            toast.success(`${p.name} removido do banco.`);
+                          } catch (error) {
+                            toast.error(
+                              error instanceof Error
+                                ? error.message
+                                : "Não foi possível remover o produto.",
+                            );
+                          }
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-primary" />
@@ -1956,11 +1978,15 @@ function StockRow({ product }: { product: Product }) {
           <Switch
             id={`sold-out-${product.id}`}
             checked={Boolean(product.soldOut)}
-            onCheckedChange={(checked) => {
-              updateProduct(product.id, { soldOut: checked });
-              toast.success(
-                checked ? `${product.name} marcado como esgotado.` : `${product.name} reativado.`,
-              );
+            onCheckedChange={async (checked) => {
+              try {
+                await updateProduct(product.id, { soldOut: checked });
+                toast.success(
+                  checked ? `${product.name} marcado como esgotado.` : `${product.name} reativado.`,
+                );
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Falha ao atualizar estoque.");
+              }
             }}
           />
           <span
@@ -1986,8 +2012,18 @@ function StockRow({ product }: { product: Product }) {
                 className="w-28"
                 inputMode="numeric"
                 maxLength={5}
-                value={String(v.stock)}
-                onChange={(e) => setVariantStock(product.id, v.id, Number(e.target.value))}
+                key={`${v.id}-${v.stock}`}
+                defaultValue={String(v.stock)}
+                onBlur={async (event) => {
+                  try {
+                    await setVariantStock(product.id, v.id, Number(event.target.value));
+                    toast.success("Estoque salvo no banco.");
+                  } catch (error) {
+                    toast.error(
+                      error instanceof Error ? error.message : "Falha ao salvar estoque.",
+                    );
+                  }
+                }}
                 aria-label={`Estoque ${product.sku} tamanho ${v.size}`}
               />
             </div>
@@ -1999,8 +2035,16 @@ function StockRow({ product }: { product: Product }) {
               className="w-28"
               inputMode="numeric"
               maxLength={5}
-              value={String(product.stock)}
-              onChange={(e) => setStock(product.id, Number(e.target.value))}
+              key={`${product.id}-${product.stock}`}
+              defaultValue={String(product.stock)}
+              onBlur={async (event) => {
+                try {
+                  await setStock(product.id, Number(event.target.value));
+                  toast.success("Estoque salvo no banco.");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Falha ao salvar estoque.");
+                }
+              }}
               aria-label={`Estoque ${product.sku}`}
             />
           </div>
@@ -2017,7 +2061,7 @@ function PromoRow({ product }: { product: Product }) {
   const [start, setStart] = useState(promo?.start ?? "");
   const [end, setEnd] = useState(promo?.end ?? "");
 
-  function save() {
+  async function save() {
     const value = Number(percent);
     if (!Number.isFinite(value) || value < 1 || value > 90) {
       toast.error("Informe um desconto entre 1% e 90%.");
@@ -2027,16 +2071,20 @@ function PromoRow({ product }: { product: Product }) {
       toast.error("A data final deve ser posterior à inicial.");
       return;
     }
-    schedulePromotion(product.id, {
-      percent: value,
-      start: start || undefined,
-      end: end || undefined,
-    });
-    toast.success(
-      isPromotionActive({ percent: value, start: start || undefined, end: end || undefined })
-        ? `${product.name} está em promoção agora.`
-        : `Promoção de ${product.name} agendada.`,
-    );
+    try {
+      await schedulePromotion(product.id, {
+        percent: value,
+        start: start || undefined,
+        end: end || undefined,
+      });
+      toast.success(
+        isPromotionActive({ percent: value, start: start || undefined, end: end || undefined })
+          ? `${product.name} está em promoção agora.`
+          : `Promoção de ${product.name} agendada.`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao salvar promoção.");
+    }
   }
 
   return (
@@ -2092,18 +2140,22 @@ function PromoRow({ product }: { product: Product }) {
             aria-label={`Fim da promoção de ${product.name}`}
           />
         </div>
-        <Button variant="hero" size="sm" onClick={save}>
+        <Button variant="hero" size="sm" onClick={() => void save()}>
           <CalendarClock className="h-4 w-4" /> Agendar
         </Button>
         {promo && (
           <Button
             variant="surface"
             size="sm"
-            onClick={() => {
-              schedulePromotion(product.id, null);
-              setStart("");
-              setEnd("");
-              toast.success(`Promoção de ${product.name} removida.`);
+            onClick={async () => {
+              try {
+                await schedulePromotion(product.id, null);
+                setStart("");
+                setEnd("");
+                toast.success(`Promoção de ${product.name} removida.`);
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Falha ao remover promoção.");
+              }
             }}
           >
             Remover

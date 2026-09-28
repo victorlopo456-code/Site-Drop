@@ -104,6 +104,7 @@ export function ProductFormDialog({
   const brands = useMemo(() => managedBrands.map((brand) => brand.name), [managedBrands]);
   const [draft, setDraft] = useState<Draft>(() => toDraft(product, categories, brands));
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<string[]>([]);
 
   useEffect(() => {
@@ -111,6 +112,7 @@ export function ProductFormDialog({
       setDraft(toDraft(product, categories, brands));
       setPendingUploads([]);
       setUploading(false);
+      setSaving(false);
     }
   }, [open, product, categories, brands]);
 
@@ -173,7 +175,7 @@ export function ProductFormDialog({
     }
   }
 
-  function save() {
+  async function save() {
     const price = Number(draft.price.replace(",", "."));
     const shipping = {
       weightKg: Number(draft.weightKg.replace(",", ".")),
@@ -205,63 +207,72 @@ export function ProductFormDialog({
       ? variants.reduce((acc, v) => acc + Math.max(0, v.stock), 0)
       : Math.max(0, Number(draft.stock) || 0);
 
-    if (product) {
-      updateProduct(product.id, {
-        name: draft.name.trim(),
-        brand: draft.brand,
-        category: draft.category,
-        price,
-        basePrice: price,
-        stock,
-        soldOut: draft.soldOut,
-        variants,
-        description: draft.description.trim(),
-        images: images.length ? images : product.images,
-        specs: [
-          { label: "Marca", value: draft.brand },
-          { label: "SKU", value: product.sku },
-          { label: "Garantia", value: "3 meses contra defeito de fabricação" },
-        ],
-        shipping,
-      });
-      toast.success(`${draft.name.trim()} atualizado.`);
-    } else {
-      const id = nextProductId();
-      const fallback =
-        categories.find((c) => c.slug === draft.category)?.image ??
-        categories[0]?.image ??
-        imageFor("shapes");
-      const newProduct: Product = {
-        id,
-        sku: draft.sku.trim() || `DRP-${id.padStart(4, "0")}`,
-        slug: `${slugify(draft.name)}-${id}`,
-        name: draft.name.trim(),
-        brand: draft.brand,
-        category: draft.category,
-        price,
-        basePrice: price,
-        rating: 5,
-        reviews: 0,
-        stock,
-        soldOut: draft.soldOut,
-        variants,
-        images: images.length ? images : [fallback, fallback, fallback],
-        description:
-          draft.description.trim() ||
-          `${draft.name.trim()} da ${draft.brand}, novo item da curadoria DROP Skate Shop.`,
-        specs: [
-          { label: "Marca", value: draft.brand },
-          { label: "SKU", value: draft.sku.trim() || `DRP-${id.padStart(4, "0")}` },
-          { label: "Garantia", value: "3 meses contra defeito de fabricação" },
-        ],
-        tags: ["lancamentos"],
-        shipping,
-      };
-      addProduct(newProduct);
-      toast.success(`${newProduct.name} adicionado ao catálogo.`);
+    setSaving(true);
+    try {
+      if (product) {
+        await updateProduct(product.id, {
+          name: draft.name.trim(),
+          brand: draft.brand,
+          category: draft.category,
+          price,
+          basePrice: price,
+          stock,
+          soldOut: draft.soldOut,
+          variants,
+          description: draft.description.trim(),
+          images: images.length ? images : product.images,
+          specs: [
+            { label: "Marca", value: draft.brand },
+            { label: "SKU", value: product.sku },
+            { label: "Garantia", value: "3 meses contra defeito de fabricação" },
+          ],
+          shipping,
+        });
+        toast.success(`${draft.name.trim()} atualizado no banco.`);
+      } else {
+        const id = nextProductId();
+        const shortId = id.slice(0, 8).toUpperCase();
+        const defaultSku = `DRP-${shortId}`;
+        const fallback =
+          categories.find((c) => c.slug === draft.category)?.image ??
+          categories[0]?.image ??
+          imageFor("shapes");
+        const newProduct: Product = {
+          id,
+          sku: draft.sku.trim() || defaultSku,
+          slug: `${slugify(draft.name)}-${id.slice(0, 8)}`,
+          name: draft.name.trim(),
+          brand: draft.brand,
+          category: draft.category,
+          price,
+          basePrice: price,
+          rating: 5,
+          reviews: 0,
+          stock,
+          soldOut: draft.soldOut,
+          variants,
+          images: images.length ? images : [fallback, fallback, fallback],
+          description:
+            draft.description.trim() ||
+            `${draft.name.trim()} da ${draft.brand}, novo item da curadoria DROP Skate Shop.`,
+          specs: [
+            { label: "Marca", value: draft.brand },
+            { label: "SKU", value: draft.sku.trim() || defaultSku },
+            { label: "Garantia", value: "3 meses contra defeito de fabricação" },
+          ],
+          tags: ["lancamentos"],
+          shipping,
+        };
+        await addProduct(newProduct);
+        toast.success(`${newProduct.name} salvo no banco e publicado.`);
+      }
+      setPendingUploads([]);
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o produto.");
+    } finally {
+      setSaving(false);
     }
-    setPendingUploads([]);
-    onOpenChange(false);
   }
 
   return (
@@ -578,11 +589,21 @@ export function ProductFormDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="surface" size="sm" disabled={uploading} onClick={closeWithoutSaving}>
+          <Button
+            variant="surface"
+            size="sm"
+            disabled={uploading || saving}
+            onClick={closeWithoutSaving}
+          >
             Cancelar
           </Button>
-          <Button variant="hero" size="sm" disabled={uploading} onClick={save}>
-            {product ? "Salvar alterações" : "Criar produto"}
+          <Button
+            variant="hero"
+            size="sm"
+            disabled={uploading || saving}
+            onClick={() => void save()}
+          >
+            {saving ? "Salvando no banco..." : product ? "Salvar alterações" : "Criar produto"}
           </Button>
         </DialogFooter>
       </DialogContent>

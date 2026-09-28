@@ -173,9 +173,11 @@ function BrandRow({ brand }: { brand: ManagedBrand }) {
             try {
               await saveManagedBrand(draft, brand.id);
               if (draft.name.trim() !== brand.name) {
-                products
-                  .filter((product) => product.brand === brand.name)
-                  .forEach((product) => updateProduct(product.id, { brand: draft.name.trim() }));
+                await Promise.all(
+                  products
+                    .filter((product) => product.brand === brand.name)
+                    .map((product) => updateProduct(product.id, { brand: draft.name.trim() })),
+                );
               }
               toast.success("Marca atualizada.");
             } catch (error) {
