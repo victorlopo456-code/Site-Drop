@@ -20,6 +20,7 @@ import { CartDrawer } from "@/components/site/CartDrawer";
 import { VirtualAssistant } from "@/components/site/VirtualAssistant";
 import { MobileBottomNav } from "@/components/site/MobileBottomNav";
 import { PwaManager } from "@/components/site/PwaManager";
+import { SessionInactivityGuard } from "@/components/site/SessionInactivityGuard";
 import { CartProvider } from "@/lib/cart";
 import { Toaster } from "@/components/ui/sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -149,6 +150,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CartProvider>
         <AnalyticsTracker />
+        <SessionInactivityGuard />
         <div className="flex min-h-screen flex-col pb-16 lg:pb-0">
           <Header />
           <main className="flex-1">
