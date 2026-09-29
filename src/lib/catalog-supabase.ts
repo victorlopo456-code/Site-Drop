@@ -173,8 +173,8 @@ export async function loadCatalogFromSupabase(): Promise<Product[] | null> {
 async function savePrivateCost(product: Product) {
   const supabase = await requireCatalogClient();
   if (product.costPrice == null) {
-    const { error } = await supabase.from("product_costs").delete().eq("product_id", product.id);
-    if (error) throw new Error("Não foi possível remover o preço de custo.");
+    // O custo privado pode ainda não ter sido carregado. Não apague um valor
+    // existente durante uma edição comum de estoque, descrição ou imagens.
     return;
   }
   const { error } = await supabase.from("product_costs").upsert(

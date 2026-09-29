@@ -12,6 +12,7 @@ import {
   loadCatalogFromSupabase,
   updateProductInSupabase,
 } from "@/lib/catalog-supabase";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 let current: Product[] = applySchedules(baseProducts);
 let hydrated = false;
@@ -81,6 +82,11 @@ function hydrate() {
   window.addEventListener("focus", () => void hydrateRemote());
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") void hydrateRemote();
+  });
+  getSupabaseBrowserClient()?.auth.onAuthStateChange(() => {
+    // Recarrega custos privados ao entrar/sair da administração sem bloquear
+    // o callback interno de autenticação do Supabase.
+    window.setTimeout(() => void hydrateRemote(), 0);
   });
   if (!timer) {
     timer = setInterval(() => {
