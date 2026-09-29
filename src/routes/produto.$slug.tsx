@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import {
   Check,
   Heart,
+  Loader2,
+  MapPin,
   Minus,
   Plus,
   Share2,
@@ -40,6 +42,7 @@ import {
   type ProductReview,
 } from "@/lib/product-reviews";
 import { subscribeStockAlert } from "@/lib/customer-marketing";
+import { quoteShipping, type ShippingOption } from "@/lib/shipping";
 
 export const Route = createFileRoute("/produto/$slug")({
   loader: async ({ params }: { params: { slug: string } }) => {
@@ -97,6 +100,10 @@ function ProductPage() {
   const [savingReview, setSavingReview] = useState(false);
   const [stockAlertEmail, setStockAlertEmail] = useState("");
   const [savingStockAlert, setSavingStockAlert] = useState(false);
+  const [shippingCep, setShippingCep] = useState("");
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [shippingMessage, setShippingMessage] = useState("");
+  const [quotingShipping, setQuotingShipping] = useState(false);
   const viewedProductId = product?.id;
   useEffect(() => {
     if (!viewedProductId) return;
@@ -184,9 +191,54 @@ function ProductPage() {
   };
 
   const related = all
-    .filter((p) => p.category === product.category && p.id !== product.id)
+    .filter((candidate) => candidate.id !== product.id && !isOutOfStock(candidate))
+    .map((candidate) => ({
+      product: candidate,
+      score:
+        (candidate.category === product.category ? 5 : 0) +
+        (candidate.brand === product.brand ? 3 : 0) +
+        candidate.tags.filter((tag) => product.tags.includes(tag)).length,
+    }))
+    .filter((candidate) => candidate.score > 0)
+    .sort((left, right) => right.score - left.score || right.product.rating - left.product.rating)
+    .map((candidate) => candidate.product)
     .slice(0, 4);
-  const bought = all.filter((p) => p.id !== product.id).slice(0, 4);
+  const bought = all
+    .filter((candidate) => candidate.id !== product.id && !isOutOfStock(candidate))
+    .filter((candidate) => candidate.category !== product.category)
+    .sort((left, right) => right.rating - left.rating)
+    .slice(0, 4);
+
+  const calculateProductShipping = async () => {
+    const cep = shippingCep.replace(/\D/g, "");
+    if (cep.length !== 8) return toast.error("Informe um CEP válido.");
+    setQuotingShipping(true);
+    setShippingOptions([]);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+      let visitorId = localStorage.getItem("drop-shipping-visitor");
+      if (!visitorId) {
+        visitorId = crypto.randomUUID();
+        localStorage.setItem("drop-shipping-visitor", visitorId);
+      }
+      const result = await quoteShipping({
+        data: {
+          accessToken: data.session?.access_token ?? null,
+          visitorId,
+          cep,
+          items: [{ id: product.id, variantId: selectedVariant?.id, qty }],
+        },
+      });
+      setShippingMessage(result.message);
+      setShippingOptions(result.options);
+    } catch (error) {
+      setShippingMessage("");
+      toast.error(error instanceof Error ? error.message : "Não foi possível calcular o frete.");
+    } finally {
+      setQuotingShipping(false);
+    }
+  };
 
   return (
     <div className="container-drop py-6 sm:py-10">
@@ -466,6 +518,65 @@ function ProductPage() {
             >
               <Share2 className="h-4 w-4" /> Compartilhar
             </button>
+          </div>
+
+          <div className="mt-6 rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              <p className="font-display text-sm uppercase">Calcule frete e prazo</p>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Input
+                value={shippingCep}
+                onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, "").slice(0, 8);
+                  setShippingCep(
+                    digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits,
+                  );
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void calculateProductShipping();
+                }}
+                inputMode="numeric"
+                maxLength={9}
+                placeholder="Digite seu CEP"
+                aria-label="CEP para cálculo de frete"
+              />
+              <Button
+                type="button"
+                variant="surface"
+                disabled={quotingShipping || soldOut}
+                onClick={() => void calculateProductShipping()}
+              >
+                {quotingShipping ? <Loader2 className="h-4 w-4 animate-spin" /> : "Calcular"}
+              </Button>
+            </div>
+            {shippingMessage && (
+              <p className="mt-3 text-xs text-muted-foreground">{shippingMessage}</p>
+            )}
+            {shippingOptions.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {shippingOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className="flex items-center justify-between rounded-md border border-border bg-background p-3 text-sm"
+                  >
+                    <span>
+                      <span className="block font-medium">{option.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Entrega estimada em {option.days} dia(s)
+                      </span>
+                    </span>
+                    <span className="font-display text-primary">
+                      {option.price === 0 ? "Grátis" : formatBRL(option.price)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              Retirada gratuita na loja também pode ser escolhida durante a finalização da compra.
+            </p>
           </div>
 
           <Separator className="my-6" />

@@ -9,6 +9,27 @@ function normalize(value: string) {
     .trim();
 }
 
+const synonyms: Record<string, string[]> = {
+  camisa: ["camiseta"],
+  camisetas: ["camiseta"],
+  blusa: ["moletom"],
+  casaco: ["moletom"],
+  skate: ["shape"],
+  shapes: ["shape"],
+  sapato: ["tenis"],
+  calcado: ["tenis"],
+  eixo: ["truck"],
+  trucks: ["truck"],
+  roda: ["rodas"],
+};
+
+function expandTerms(query: string) {
+  return normalize(query)
+    .split(" ")
+    .filter(Boolean)
+    .map((term) => [term, ...(synonyms[term] ?? [])]);
+}
+
 function editDistance(left: string, right: string) {
   const row = Array.from({ length: right.length + 1 }, (_, index) => index);
   for (let i = 1; i <= left.length; i += 1) {
@@ -34,22 +55,30 @@ function productScore(product: Product, query: string) {
     product.category,
     product.sku,
     product.id,
+    product.description,
+    ...product.tags,
+    ...product.specs.flatMap((spec) => [spec.label, spec.value]),
     ...(product.variants ?? []).flatMap((variant) => [variant.size, variant.color]),
   ].map(normalize);
   const words = fields.flatMap((field) => field.split(" "));
-  const terms = normalize(query).split(" ").filter(Boolean);
-  if (!terms.length) return 0;
+  const termGroups = expandTerms(query);
+  if (!termGroups.length) return 0;
   let score = 0;
-  for (const term of terms) {
-    if (fields.some((field) => field === term)) score += 100;
-    else if (fields.some((field) => field.startsWith(term))) score += 70;
-    else if (fields.some((field) => field.includes(term))) score += 50;
-    else if (
-      term.length >= 3 &&
-      words.some((word) => editDistance(word, term) <= (term.length >= 7 ? 2 : 1))
-    )
-      score += 25;
-    else return -1;
+  for (const alternatives of termGroups) {
+    const alternativeScores = alternatives.map((term) => {
+      if (fields.some((field) => field === term)) return 100;
+      if (fields.some((field) => field.startsWith(term))) return 70;
+      if (fields.some((field) => field.includes(term))) return 50;
+      if (
+        term.length >= 3 &&
+        words.some((word) => editDistance(word, term) <= (term.length >= 7 ? 2 : 1))
+      )
+        return 25;
+      return -1;
+    });
+    const best = Math.max(...alternativeScores);
+    if (best < 0) return -1;
+    score += best;
   }
   if (normalize(product.name).includes(normalize(query))) score += 40;
   if (product.soldOut) score -= 5;

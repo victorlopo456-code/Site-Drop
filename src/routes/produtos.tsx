@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ProductCard } from "@/components/site/ProductCard";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { isOutOfStock } from "@/lib/catalog";
 import { useTaxonomy } from "@/lib/taxonomy";
 import { useProducts } from "@/lib/store";
 import { smartSearchProducts } from "@/lib/product-search";
@@ -45,20 +47,52 @@ function ProductsPage() {
   const brands = taxonomy.brands.filter((brand) => brand.enabled);
   const { q, cat, marca } = Route.useSearch();
   const [sort, setSort] = useState<keyof typeof sorts>("relevancia");
+  const [size, setSize] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [onlyPromotions, setOnlyPromotions] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const products = useProducts();
+
+  const sizes = useMemo(
+    () =>
+      [
+        ...new Set(
+          products.flatMap((product) => product.variants ?? []).map((variant) => variant.size),
+        ),
+      ]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true })),
+    [products],
+  );
 
   const list = useMemo(() => {
     const searched = q.trim() ? smartSearchProducts(products, q) : products;
     let result = searched.filter((p) => {
       const matchCat = !cat || p.category === cat;
       const matchBrand = !marca || p.brand === marca;
-      return matchCat && matchBrand;
+      const matchSize =
+        !size || p.variants?.some((variant) => variant.size === size && variant.stock > 0);
+      const matchMin = !minPrice || p.price >= Number(minPrice.replace(",", "."));
+      const matchMax = !maxPrice || p.price <= Number(maxPrice.replace(",", "."));
+      const matchAvailability = !onlyAvailable || !isOutOfStock(p);
+      const matchPromotion = !onlyPromotions || p.tags.includes("promocoes");
+      return (
+        matchCat &&
+        matchBrand &&
+        matchSize &&
+        matchMin &&
+        matchMax &&
+        matchAvailability &&
+        matchPromotion
+      );
     });
     if (sort === "menor-preco") result = [...result].sort((a, b) => a.price - b.price);
     if (sort === "maior-preco") result = [...result].sort((a, b) => b.price - a.price);
     if (sort === "avaliacao") result = [...result].sort((a, b) => b.rating - a.rating);
     return result;
-  }, [q, cat, marca, sort, products]);
+  }, [q, cat, marca, size, minPrice, maxPrice, onlyAvailable, onlyPromotions, sort, products]);
 
   const catName = categories.find((c) => c.slug === cat)?.name;
 
@@ -76,8 +110,17 @@ function ProductsPage() {
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">{list.length} produto(s) encontrado(s)</p>
 
+      <Button
+        variant="surface"
+        size="sm"
+        className="mt-5 w-full lg:hidden"
+        onClick={() => setFiltersOpen((open) => !open)}
+      >
+        {filtersOpen ? "Ocultar filtros" : "Filtrar produtos"}
+      </Button>
+
       <div className="mt-8 grid gap-8 lg:grid-cols-[260px_1fr]">
-        <aside className="space-y-8">
+        <aside className={`${filtersOpen ? "block" : "hidden"} space-y-8 lg:block`}>
           <div>
             <p className="mb-3 font-display text-xs uppercase tracking-[0.2em] text-primary">
               Categorias
@@ -144,6 +187,83 @@ function ProductsPage() {
                 </li>
               ))}
             </ul>
+          </div>
+
+          <div>
+            <p className="mb-3 font-display text-xs uppercase tracking-[0.2em] text-primary">
+              Tamanho
+            </p>
+            <select
+              value={size}
+              onChange={(event) => setSize(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Todos os tamanhos</option>
+              {sizes.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <p className="mb-3 font-display text-xs uppercase tracking-[0.2em] text-primary">
+              Faixa de preço
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                value={minPrice}
+                onChange={(event) => setMinPrice(event.target.value.replace(/[^0-9,.]/g, ""))}
+                inputMode="decimal"
+                placeholder="Mínimo"
+                aria-label="Preço mínimo"
+              />
+              <Input
+                value={maxPrice}
+                onChange={(event) => setMaxPrice(event.target.value.replace(/[^0-9,.]/g, ""))}
+                inputMode="decimal"
+                placeholder="Máximo"
+                aria-label="Preço máximo"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 text-sm">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={onlyAvailable}
+                onChange={(event) => setOnlyAvailable(event.target.checked)}
+                className="accent-primary"
+              />
+              Somente disponíveis
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={onlyPromotions}
+                onChange={(event) => setOnlyPromotions(event.target.checked)}
+                className="accent-primary"
+              />
+              Somente promoções
+            </label>
+            {(size || minPrice || maxPrice || onlyAvailable || onlyPromotions) && (
+              <Button
+                variant="surface"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setSize("");
+                  setMinPrice("");
+                  setMaxPrice("");
+                  setOnlyAvailable(false);
+                  setOnlyPromotions(false);
+                }}
+              >
+                Limpar filtros
+              </Button>
+            )}
           </div>
         </aside>
 
