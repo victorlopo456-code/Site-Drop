@@ -5,6 +5,7 @@ import {
   Boxes,
   CalendarClock,
   ClipboardList,
+  DollarSign,
   LogOut,
   PackageSearch,
   Pencil,
@@ -464,6 +465,7 @@ function SecureAdminPage() {
           <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
+          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="catalogo">Produtos, estoque e promoções</TabsTrigger>
           <TabsTrigger value="categorias">Categorias e marcas</TabsTrigger>
           <TabsTrigger value="cupons">Cupons</TabsTrigger>
@@ -483,6 +485,10 @@ function SecureAdminPage() {
 
         <TabsContent value="relatorios" className="mt-6">
           <AnalyticsAdmin accessToken={accessToken} />
+        </TabsContent>
+
+        <TabsContent value="financeiro" className="mt-6">
+          <FinancialDashboard />
         </TabsContent>
 
         <TabsContent value="catalogo">
@@ -1166,6 +1172,234 @@ function OperationsOverview() {
               ))
             )}
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type FinancialProduct = {
+  key: string;
+  name: string;
+  sku: string;
+  quantity: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  missingCost: boolean;
+};
+
+function FinancialDashboard() {
+  const products = useProducts();
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [days, setDays] = useState(30);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      setOrders(await loadAdminOrders());
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Não foi possível carregar o painel financeiro.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const dashboard = useMemo(() => {
+    const start = Date.now() - days * 24 * 60 * 60 * 1000;
+    const paidOrders = orders.filter((order) => {
+      const paid = order.payment_status === "approved" || order.status === "payment_approved";
+      const reversed = ["cancelled", "refunded"].includes(order.fulfillment_status);
+      return paid && !reversed && new Date(order.paid_at ?? order.created_at).getTime() >= start;
+    });
+    const costById = new Map(products.map((product) => [product.id, product.costPrice]));
+    const costBySku = new Map(products.map((product) => [product.sku, product.costPrice]));
+    const productTotals = new Map<string, FinancialProduct>();
+    let merchandiseRevenue = 0;
+    let productCost = 0;
+    let missingCostUnits = 0;
+
+    paidOrders.forEach((order) => {
+      order.order_items.forEach((item) => {
+        const revenue = Number(item.line_total);
+        const unitCost =
+          (item.product_id ? costById.get(item.product_id) : undefined) ?? costBySku.get(item.sku);
+        const cost = unitCost == null ? 0 : unitCost * item.quantity;
+        merchandiseRevenue += revenue;
+        productCost += cost;
+        if (unitCost == null) missingCostUnits += item.quantity;
+        const key = item.product_id ?? item.sku;
+        const current = productTotals.get(key) ?? {
+          key,
+          name: item.name,
+          sku: item.sku,
+          quantity: 0,
+          revenue: 0,
+          cost: 0,
+          profit: 0,
+          missingCost: false,
+        };
+        current.quantity += item.quantity;
+        current.revenue += revenue;
+        current.cost += cost;
+        current.profit = current.revenue - current.cost;
+        current.missingCost ||= unitCost == null;
+        productTotals.set(key, current);
+      });
+    });
+
+    const revenue = paidOrders.reduce((sum, order) => sum + Number(order.total), 0);
+    const shippingCharged = paidOrders.reduce(
+      (sum, order) => sum + Number(order.shipping_cost ?? 0),
+      0,
+    );
+    const grossProfit = merchandiseRevenue - productCost;
+    return {
+      paidOrders,
+      revenue,
+      merchandiseRevenue,
+      shippingCharged,
+      productCost,
+      grossProfit,
+      margin: merchandiseRevenue > 0 ? (grossProfit / merchandiseRevenue) * 100 : 0,
+      averageTicket: paidOrders.length ? revenue / paidOrders.length : 0,
+      missingCostUnits,
+      products: [...productTotals.values()].sort((a, b) => b.profit - a.profit),
+    };
+  }, [days, orders, products]);
+
+  const cards = [
+    { label: "Faturamento recebido", value: formatBRL(dashboard.revenue), icon: DollarSign },
+    { label: "Custo dos produtos", value: formatBRL(dashboard.productCost), icon: Boxes },
+    { label: "Lucro bruto estimado", value: formatBRL(dashboard.grossProfit), icon: TrendingUp },
+    { label: "Margem bruta", value: `${dashboard.margin.toFixed(1)}%`, icon: ClipboardList },
+    { label: "Pedidos pagos", value: String(dashboard.paidOrders.length), icon: PackageSearch },
+    { label: "Ticket médio", value: formatBRL(dashboard.averageTicket), icon: CalendarClock },
+  ];
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">Financeiro</p>
+          <h2 className="mt-2 text-3xl uppercase">Vendas, custos e lucro</h2>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+            Resultado estimado dos pedidos com pagamento aprovado. Pedidos cancelados e reembolsados
+            não entram no cálculo.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <select
+            value={days}
+            onChange={(event) => setDays(Number(event.target.value))}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            aria-label="Período do painel financeiro"
+          >
+            <option value={7}>Últimos 7 dias</option>
+            <option value={30}>Últimos 30 dias</option>
+            <option value={90}>Últimos 90 dias</option>
+            <option value={365}>Últimos 12 meses</option>
+          </select>
+          <Button variant="surface" size="sm" onClick={() => void refresh()} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Atualizar
+          </Button>
+        </div>
+      </div>
+
+      {dashboard.missingCostUnits > 0 && (
+        <div className="mt-6 flex gap-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-500" />
+          <p>
+            Existem {dashboard.missingCostUnits} unidade(s) vendida(s) sem preço de custo
+            cadastrado. O lucro ficará maior que o real até esses custos serem informados.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {cards.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-lg border border-border bg-card p-5">
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span className="text-xs uppercase tracking-wide">{label}</span>
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <p className="mt-3 font-display text-2xl text-foreground">{loading ? "—" : value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="border-b border-border p-5">
+            <h3 className="font-display text-lg uppercase">Produtos mais rentáveis</h3>
+          </div>
+          <table className="w-full min-w-[620px] text-sm">
+            <thead className="border-b border-border text-left text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="p-3">Produto</th>
+                <th className="p-3 text-right">Qtd.</th>
+                <th className="p-3 text-right">Vendas</th>
+                <th className="p-3 text-right">Custo</th>
+                <th className="p-3 text-right">Lucro bruto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboard.products.slice(0, 10).map((product) => (
+                <tr key={product.key} className="border-b border-border last:border-0">
+                  <td className="p-3">
+                    <p className="font-medium">{product.name}</p>
+                    <p className="text-xs text-muted-foreground">{product.sku}</p>
+                  </td>
+                  <td className="p-3 text-right">{product.quantity}</td>
+                  <td className="p-3 text-right">{formatBRL(product.revenue)}</td>
+                  <td className="p-3 text-right">
+                    {product.missingCost ? "Não cadastrado" : formatBRL(product.cost)}
+                  </td>
+                  <td className="p-3 text-right font-display text-primary">
+                    {product.missingCost ? "—" : formatBRL(product.profit)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!loading && dashboard.products.length === 0 && (
+            <p className="p-8 text-center text-muted-foreground">
+              Nenhuma venda paga neste período.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-5">
+          <h3 className="font-display text-lg uppercase">Composição</h3>
+          <div className="mt-5 space-y-4 text-sm">
+            <div className="flex justify-between border-b border-border pb-3">
+              <span className="text-muted-foreground">Venda de produtos</span>
+              <span>{formatBRL(dashboard.merchandiseRevenue)}</span>
+            </div>
+            <div className="flex justify-between border-b border-border pb-3">
+              <span className="text-muted-foreground">Frete cobrado</span>
+              <span>{formatBRL(dashboard.shippingCharged)}</span>
+            </div>
+            <div className="flex justify-between border-b border-border pb-3">
+              <span className="text-muted-foreground">Custo dos produtos</span>
+              <span className="text-destructive">− {formatBRL(dashboard.productCost)}</span>
+            </div>
+            <div className="flex justify-between pt-1 font-display text-lg">
+              <span>Lucro bruto</span>
+              <span className="text-primary">{formatBRL(dashboard.grossProfit)}</span>
+            </div>
+          </div>
+          <p className="mt-6 rounded-md bg-background p-3 text-xs text-muted-foreground">
+            Estimativa baseada no custo atual cadastrado. Taxas do Mercado Pago, custo real do
+            frete, impostos e outras despesas ainda não são descontados.
+          </p>
         </div>
       </div>
     </section>
