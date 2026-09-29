@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { imageFor, type Product, type Variant } from "@/lib/catalog";
+import { formatBRL, imageFor, type Product, type Variant } from "@/lib/catalog";
 import { useTaxonomy } from "@/lib/taxonomy";
 import {
   PRODUCT_IMAGE_ACCEPT,
@@ -38,6 +38,7 @@ type Draft = {
   brand: string;
   category: string;
   price: string;
+  costPrice: string;
   stock: string;
   soldOut: boolean;
   description: string;
@@ -61,6 +62,7 @@ function toDraft(
       brand: brands[0] ?? "",
       category: categories[0]?.slug ?? "shapes",
       price: "",
+      costPrice: "",
       stock: "10",
       soldOut: false,
       description: "",
@@ -78,6 +80,7 @@ function toDraft(
     brand: product.brand,
     category: product.category,
     price: String(product.basePrice ?? product.price).replace(".", ","),
+    costPrice: product.costPrice == null ? "" : String(product.costPrice).replace(".", ","),
     stock: String(product.stock),
     soldOut: Boolean(product.soldOut),
     description: product.description,
@@ -89,6 +92,38 @@ function toDraft(
     heightCm: String(product.shipping?.heightCm ?? 10),
     lengthCm: String(product.shipping?.lengthCm ?? 30),
   };
+}
+
+function ProfitPreview({ cost, price }: { cost: string; price: string }) {
+  const costValue = Number(cost.replace(",", "."));
+  const priceValue = Number(price.replace(",", "."));
+  const valid = cost.trim() !== "" && Number.isFinite(costValue) && priceValue > 0;
+  const profit = valid ? priceValue - costValue : 0;
+  const margin = valid ? (profit / priceValue) * 100 : 0;
+
+  return (
+    <div className="grid gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:col-span-2 sm:grid-cols-2">
+      <div>
+        <p className="text-xs uppercase text-muted-foreground">Lucro bruto por peça</p>
+        <p
+          className={`mt-1 font-display text-xl ${profit < 0 ? "text-destructive" : "text-primary"}`}
+        >
+          {valid ? formatBRL(profit) : "Informe custo e preço"}
+        </p>
+      </div>
+      <div>
+        <p className="text-xs uppercase text-muted-foreground">Margem sobre a venda</p>
+        <p
+          className={`mt-1 font-display text-xl ${margin < 0 ? "text-destructive" : "text-primary"}`}
+        >
+          {valid ? `${margin.toFixed(1).replace(".", ",")}%` : "—"}
+        </p>
+      </div>
+      <p className="text-xs text-muted-foreground sm:col-span-2">
+        Estimativa antes de taxas do pagamento, impostos, frete e outras despesas.
+      </p>
+    </div>
+  );
 }
 
 export function ProductFormDialog({
@@ -177,6 +212,9 @@ export function ProductFormDialog({
 
   async function save() {
     const price = Number(draft.price.replace(",", "."));
+    const costPrice = draft.costPrice.trim()
+      ? Number(draft.costPrice.replace(",", "."))
+      : undefined;
     const shipping = {
       weightKg: Number(draft.weightKg.replace(",", ".")),
       widthCm: Number(draft.widthCm),
@@ -189,6 +227,10 @@ export function ProductFormDialog({
     }
     if (!Number.isFinite(price) || price <= 0) {
       toast.error("Informe um preço válido.");
+      return;
+    }
+    if (costPrice != null && (!Number.isFinite(costPrice) || costPrice < 0)) {
+      toast.error("Informe um preço de custo válido.");
       return;
     }
     if (
@@ -216,6 +258,7 @@ export function ProductFormDialog({
           category: draft.category,
           price,
           basePrice: price,
+          costPrice,
           stock,
           soldOut: draft.soldOut,
           variants,
@@ -246,6 +289,7 @@ export function ProductFormDialog({
           category: draft.category,
           price,
           basePrice: price,
+          costPrice,
           rating: 5,
           reviews: 0,
           stock,
@@ -325,6 +369,17 @@ export function ProductFormDialog({
             </select>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="pf-custo">Preço de custo (R$)</Label>
+            <Input
+              id="pf-custo"
+              inputMode="decimal"
+              maxLength={10}
+              value={draft.costPrice}
+              onChange={(event) => set("costPrice", event.target.value)}
+              placeholder="180,00"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="pf-preco">Preço cheio (R$)</Label>
             <Input
               id="pf-preco"
@@ -335,6 +390,7 @@ export function ProductFormDialog({
               placeholder="349,90"
             />
           </div>
+          <ProfitPreview cost={draft.costPrice} price={draft.price} />
           <div className="space-y-2">
             <Label htmlFor="pf-sku">SKU</Label>
             <Input

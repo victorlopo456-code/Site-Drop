@@ -65,6 +65,8 @@ export type Product = {
   price: number;
   /** Preço cheio de referência, usado para calcular promoções. */
   basePrice?: number;
+  /** Informação privada, carregada somente para administradores. */
+  costPrice?: number;
   compareAt?: number;
   rating: number;
   reviews: number;

@@ -152,7 +152,40 @@ export async function loadCatalogFromSupabase(): Promise<Product[] | null> {
     console.warn("Catálogo do Supabase indisponível:", error.message);
     return null;
   }
-  return (data as ProductRow[]).map(fromRow).filter((item): item is Product => item !== null);
+  const products = (data as ProductRow[])
+    .map(fromRow)
+    .filter((item): item is Product => item !== null);
+  const { data: session } = await supabase.auth.getSession();
+  if (!session.session) return products;
+  const { data: costs, error: costsError } = await supabase
+    .from("product_costs")
+    .select("product_id,cost_price");
+  if (costsError || !costs?.length) return products;
+  const costByProduct = new Map(
+    costs.map((cost) => [cost.product_id as string, Number(cost.cost_price)]),
+  );
+  return products.map((product) => ({
+    ...product,
+    costPrice: costByProduct.get(product.id),
+  }));
+}
+
+async function savePrivateCost(product: Product) {
+  const supabase = await requireCatalogClient();
+  if (product.costPrice == null) {
+    const { error } = await supabase.from("product_costs").delete().eq("product_id", product.id);
+    if (error) throw new Error("Não foi possível remover o preço de custo.");
+    return;
+  }
+  const { error } = await supabase.from("product_costs").upsert(
+    {
+      product_id: product.id,
+      cost_price: product.costPrice,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "product_id" },
+  );
+  if (error) throw new Error("Não foi possível salvar o preço de custo.");
 }
 
 export async function createProductInSupabase(product: Product) {
@@ -164,6 +197,12 @@ export async function createProductInSupabase(product: Product) {
     enabled: true,
   });
   if (error) throw new Error(catalogError(error));
+  try {
+    await savePrivateCost(product);
+  } catch (costError) {
+    await supabase.from("products").delete().eq("id", product.id);
+    throw costError;
+  }
 }
 
 export async function updateProductInSupabase(product: Product) {
@@ -176,6 +215,7 @@ export async function updateProductInSupabase(product: Product) {
     .maybeSingle();
   if (error) throw new Error(catalogError(error));
   if (!data) throw new Error("Produto não encontrado no banco de dados.");
+  await savePrivateCost(product);
 }
 
 export async function deleteProductInSupabase(id: string) {
