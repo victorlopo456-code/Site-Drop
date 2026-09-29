@@ -44,7 +44,7 @@ export function CartDrawer() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="flex w-full flex-col gap-0 border-border bg-background p-0 sm:max-w-md">
+      <SheetContent className="flex w-full flex-col gap-0 border-border bg-background p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-md">
         <SheetHeader className="border-b border-border p-5">
           <SheetTitle className="font-display uppercase">Seu carrinho</SheetTitle>
           <SheetDescription>

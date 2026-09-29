@@ -384,12 +384,12 @@ function Checkout() {
         segurança no ambiente do Mercado Pago.
       </p>
 
-      <ol className="mt-6 flex flex-wrap gap-2 text-xs uppercase tracking-widest">
+      <ol className="hide-scrollbar mt-6 flex gap-2 overflow-x-auto pb-1 text-xs uppercase tracking-widest sm:flex-wrap sm:overflow-visible sm:pb-0">
         {steps.map((s, i) => (
           <li
             key={s}
             className={cn(
-              "rounded border px-3 py-1.5",
+              "shrink-0 rounded border px-3 py-1.5",
               i <= step ? "border-primary text-primary" : "border-border text-muted-foreground",
             )}
           >

@@ -347,13 +347,13 @@ export function VirtualAssistant() {
   };
 
   return (
-    <aside className="fixed bottom-20 right-3 z-50 flex flex-col items-end sm:right-4 lg:bottom-6 lg:right-6">
+    <aside className="fixed bottom-20 right-2 z-50 flex flex-col items-end sm:right-4 lg:bottom-6 lg:right-6">
       {open && (
         <section
           id="drop-virtual-assistant"
           role="dialog"
           aria-label="Conversa com o assistente virtual da DROP"
-          className="mb-3 flex max-h-[min(680px,calc(100vh-7rem))] w-[calc(100vw-1.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+          className="mb-2 flex max-h-[calc(100dvh-6rem)] w-[calc(100vw-1rem)] max-w-sm flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl sm:mb-3 sm:max-h-[min(680px,calc(100vh-7rem))] sm:w-[calc(100vw-1.5rem)] sm:rounded-2xl"
         >
           <header className="flex items-center gap-3 bg-primary px-4 py-3 text-primary-foreground">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-foreground/15">
@@ -524,10 +524,10 @@ export function VirtualAssistant() {
         aria-expanded={open}
         aria-controls="drop-virtual-assistant"
         aria-label={open ? "Fechar assistente virtual" : "Abrir assistente virtual"}
-        className="group relative flex h-12 items-center gap-2 rounded-full border border-primary/40 bg-primary px-3 text-primary-foreground shadow-ember transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-14 sm:px-4 lg:h-16 lg:px-5"
+        className="group relative flex h-12 w-12 items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary p-0 text-primary-foreground shadow-ember transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-14 sm:w-auto sm:px-4 lg:h-16 lg:px-5"
       >
         {open ? <X className="h-6 w-6" /> : <WhatsAppIcon className="h-7 w-7" />}
-        <span className="font-display text-xs uppercase sm:text-sm">
+        <span className="hidden font-display text-xs uppercase sm:inline sm:text-sm">
           {open ? "Fechar" : "Precisa de ajuda?"}
         </span>
         {!open && (

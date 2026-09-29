@@ -49,10 +49,10 @@ function SectionHeader({
   to?: { cat?: string; promo?: boolean };
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-5 flex items-end justify-between gap-3 sm:mb-8 sm:flex-wrap sm:gap-4">
       <div>
         <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">{eyebrow}</p>
-        <h2 className="mt-2 text-3xl uppercase md:text-4xl">{title}</h2>
+        <h2 className="mt-1 text-2xl uppercase sm:mt-2 sm:text-3xl md:text-4xl">{title}</h2>
       </div>
       {to?.promo ? (
         <Button variant="outlineLight" size="sm" asChild>
@@ -84,7 +84,7 @@ function Home() {
   return (
     <>
       {/* HERO */}
-      <section className="relative isolate flex min-h-[68svh] items-center overflow-hidden sm:min-h-[78vh]">
+      <section className="relative isolate flex min-h-[62svh] items-center overflow-hidden sm:min-h-[78vh]">
         <img
           src={heroImg}
           alt="Skatista realizando manobra em bowl urbano à noite"
@@ -97,27 +97,27 @@ function Home() {
           style={{ background: "var(--gradient-hero)" }}
           aria-hidden
         />
-        <div className="container-drop animate-rise py-12 sm:py-20">
+        <div className="container-drop animate-rise py-8 sm:py-20">
           <Link
             to="/"
             aria-label="DROP Skate Shop — ir para a página inicial"
-            className="mb-8 block w-fit"
+            className="mb-5 block w-fit sm:mb-8"
           >
             <img
               src={logo}
               alt="DROP Skate Shop"
               width={1280}
               height={1280}
-              className="h-28 w-28 rounded-full object-contain sm:h-40 sm:w-40 md:h-52 md:w-52"
+              className="h-20 w-20 rounded-full object-contain sm:h-40 sm:w-40 md:h-52 md:w-52"
             />
           </Link>
           <p className="font-display text-xs uppercase tracking-[0.4em] text-primary">
             Coleção 2026 · Street & Park
           </p>
-          <h1 className="mt-4 max-w-3xl text-3xl uppercase leading-[0.98] sm:text-4xl md:text-7xl">
+          <h1 className="mt-3 max-w-3xl text-3xl uppercase leading-[0.98] sm:mt-4 sm:text-4xl md:text-7xl">
             Seu setup começa <span className="text-gradient-ember">aqui</span>
           </h1>
-          <p className="mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
+          <p className="mt-4 max-w-xl text-sm text-muted-foreground sm:mt-5 sm:text-base md:text-lg">
             Shapes, rodas, trucks, tênis e streetwear das marcas que moldaram a cultura do skate.
             Curadoria DROP, entrega rápida e produtos 100% originais.
           </p>
@@ -136,16 +136,18 @@ function Home() {
 
       {/* BENEFÍCIOS */}
       <section className="border-y border-border bg-surface">
-        <div className="container-drop grid gap-6 py-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="container-drop grid grid-cols-2 gap-4 py-6 sm:gap-6 sm:py-8 lg:grid-cols-4">
           {benefits.map((benefit) => {
             const Icon = benefitIconComponents[benefit.icon];
             return (
               <div key={benefit.id} className="flex items-center gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-border bg-background text-primary">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-border bg-background text-primary sm:h-11 sm:w-11">
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-display text-sm uppercase">{benefit.title}</span>
+                  <span className="block font-display text-xs uppercase sm:text-sm">
+                    {benefit.title}
+                  </span>
                   <span className="block text-xs text-muted-foreground">{benefit.description}</span>
                 </span>
               </div>
@@ -157,7 +159,7 @@ function Home() {
       {/* MAIS VENDIDOS */}
       <section className="container-drop py-10 sm:py-16">
         <SectionHeader eyebrow="Top da loja" title="Os mais vendidos" />
-        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {bestSellers.slice(0, 8).map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
@@ -167,7 +169,7 @@ function Home() {
       {/* CATEGORIAS */}
       <section className="container-drop py-8">
         <SectionHeader eyebrow="Navegue por" title="Categorias" />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3 lg:grid-cols-6">
           {categories.map((c) => (
             <Link
               key={c.slug}
@@ -194,7 +196,7 @@ function Home() {
       {/* LANÇAMENTOS */}
       <section className="container-drop py-10 sm:py-16">
         <SectionHeader eyebrow="Acabou de chegar" title="Lançamentos" />
-        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {news.slice(0, 4).map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
@@ -238,7 +240,7 @@ function Home() {
       {/* OFERTAS */}
       <section className="container-drop py-10 sm:py-16">
         <SectionHeader eyebrow="Preço baixou" title="Promoções" to={{ promo: true }} />
-        <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {deals.slice(0, 8).map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

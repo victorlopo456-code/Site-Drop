@@ -301,7 +301,7 @@ function Account({ user }: { user: SupabaseUser }) {
   };
 
   return (
-    <div className="container-drop py-12">
+    <div className="container-drop py-7 sm:py-12">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl uppercase md:text-4xl">Minha conta</h1>
@@ -316,12 +316,12 @@ function Account({ user }: { user: SupabaseUser }) {
         onValueChange={(value) => setActivePanel(value as typeof activePanel)}
         className="mt-8 gap-6 lg:grid lg:grid-cols-[240px_1fr]"
       >
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0 lg:flex-col lg:items-stretch">
+        <TabsList className="hide-scrollbar flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto bg-transparent p-0 lg:flex-col lg:items-stretch lg:overflow-visible">
           {panels.map(({ value, label, icon: Icon }) => (
             <TabsTrigger
               key={value}
               value={value}
-              className="justify-start gap-2 data-[state=active]:bg-surface data-[state=active]:text-primary"
+              className="shrink-0 justify-start gap-2 data-[state=active]:bg-surface data-[state=active]:text-primary lg:w-full"
             >
               <Icon className="h-4 w-4" /> {label}
             </TabsTrigger>

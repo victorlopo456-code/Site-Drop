@@ -21,14 +21,14 @@ export const Route = createFileRoute("/promocoes")({
 function Promos() {
   const deals = useProducts().filter((p) => p.tags.includes("promocoes"));
   return (
-    <div className="container-drop py-12">
+    <div className="container-drop py-7 sm:py-12">
       <p className="font-display text-xs uppercase tracking-[0.3em] text-primary">Semana DROP</p>
-      <h1 className="mt-2 text-4xl uppercase md:text-5xl">Promoções</h1>
+      <h1 className="mt-2 text-3xl uppercase sm:text-4xl md:text-5xl">Promoções</h1>
       <p className="mt-3 max-w-xl text-muted-foreground">
         Descontos reais em produtos originais. Use os cupons DROP10, SKATE15 ou BLACK20 no carrinho.
       </p>
 
-      <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-7 grid grid-cols-2 gap-2.5 sm:mt-10 sm:gap-4 lg:grid-cols-4">
         {deals.map((p) => (
           <ProductCard key={p.id} product={p} />
         ))}

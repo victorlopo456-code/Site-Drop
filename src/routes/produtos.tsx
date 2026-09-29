@@ -286,7 +286,7 @@ function ProductsPage() {
               Nenhum produto encontrado. Tente outra busca ou filtro.
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-3">
               {list.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}

@@ -32,7 +32,7 @@ export function ProductCard({ product, className }: { product: Product; classNam
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
         {off > 0 && (
-          <span className="absolute left-3 top-3 rounded bg-primary px-2 py-1 font-display text-[11px] uppercase text-primary-foreground">
+          <span className="absolute left-2 top-2 rounded bg-primary px-1.5 py-1 font-display text-[9px] uppercase text-primary-foreground sm:left-3 sm:top-3 sm:px-2 sm:text-[11px]">
             -{off}%
           </span>
         )}
@@ -42,7 +42,7 @@ export function ProductCard({ product, className }: { product: Product; classNam
           </span>
         )}
         {product.tags.includes("lancamentos") && (
-          <span className="absolute right-3 top-3 rounded border border-border bg-background/80 px-2 py-1 font-display text-[11px] uppercase text-foreground backdrop-blur">
+          <span className="absolute right-2 top-2 rounded border border-border bg-background/80 px-1.5 py-1 font-display text-[9px] uppercase text-foreground backdrop-blur sm:right-3 sm:top-3 sm:px-2 sm:text-[11px]">
             Novo
           </span>
         )}
@@ -52,19 +52,19 @@ export function ProductCard({ product, className }: { product: Product; classNam
         type="button"
         aria-label="Favoritar produto"
         onClick={() => toggleFavorite(product.id)}
-        className="absolute right-3 top-14 grid h-9 w-9 place-items-center rounded-full border border-border bg-background/70 text-muted-foreground backdrop-blur transition-colors hover:text-primary"
+        className="absolute right-2 top-11 grid h-9 w-9 place-items-center rounded-full border border-border bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:text-primary sm:right-3 sm:top-14"
       >
         <Heart className={cn("h-4 w-4", isFav && "fill-primary text-primary")} />
       </button>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+      <div className="flex flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-4">
+        <span className="truncate text-[9px] uppercase tracking-widest text-muted-foreground sm:text-[11px]">
           {product.brand}
         </span>
         <Link
           to="/produto/$slug"
           params={{ slug: product.slug }}
-          className="line-clamp-2 text-sm font-semibold leading-snug transition-colors hover:text-primary"
+          className="line-clamp-2 min-h-9 text-xs font-semibold leading-snug transition-colors hover:text-primary sm:min-h-0 sm:text-sm"
         >
           {product.name}
         </Link>
@@ -74,14 +74,21 @@ export function ProductCard({ product, className }: { product: Product; classNam
               {formatBRL(product.compareAt)}
             </p>
           )}
-          <p className="font-display text-xl text-primary">{formatBRL(product.price)}</p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="font-display text-base text-primary sm:text-xl">
+            {formatBRL(product.price)}
+          </p>
+          <p className="line-clamp-1 text-[9px] text-muted-foreground sm:text-[11px]">
             ou 10x de {formatBRL(product.price / 10)} sem juros
           </p>
         </div>
 
         {product.variants?.length && !soldOut ? (
-          <Button variant="hero" size="sm" className="mt-3 w-full" asChild>
+          <Button
+            variant="hero"
+            size="sm"
+            className="mt-2 w-full px-2 text-[10px] sm:mt-3 sm:px-3 sm:text-xs"
+            asChild
+          >
             <Link to="/produto/$slug" params={{ slug: product.slug }}>
               Escolher opções
             </Link>
@@ -90,7 +97,7 @@ export function ProductCard({ product, className }: { product: Product; classNam
           <Button
             variant={soldOut ? "surface" : "hero"}
             size="sm"
-            className="mt-3 w-full"
+            className="mt-2 w-full px-2 text-[10px] sm:mt-3 sm:px-3 sm:text-xs"
             disabled={soldOut}
             onClick={() => add(product)}
           >
