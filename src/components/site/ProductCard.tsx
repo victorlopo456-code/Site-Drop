@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Heart, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,16 @@ export function ProductCard({ product, className }: { product: Product; classNam
   const off = discountPercent(product);
   const isFav = favorites.includes(product.id);
   const soldOut = isOutOfStock(product);
+  const [hovered, setHovered] = useState(false);
+  const [activeImage, setActiveImage] = useState(0);
+
+  useEffect(() => {
+    if (!hovered || product.images.length < 2) return;
+    const timer = window.setInterval(() => {
+      setActiveImage((current) => (current + 1) % product.images.length);
+    }, 1200);
+    return () => window.clearInterval(timer);
+  }, [hovered, product.images.length]);
 
   return (
     <article
@@ -22,15 +33,36 @@ export function ProductCard({ product, className }: { product: Product; classNam
         to="/produto/$slug"
         params={{ slug: product.slug }}
         className="relative block aspect-square overflow-hidden bg-surface"
+        onMouseEnter={() => {
+          if (window.matchMedia("(hover: hover)").matches) setHovered(true);
+        }}
+        onMouseLeave={() => {
+          setHovered(false);
+          setActiveImage(0);
+        }}
       >
         <img
-          src={product.images[0]}
+          key={product.images[activeImage]}
+          src={product.images[activeImage]}
           alt={product.name}
           loading="lazy"
           width={800}
           height={800}
-          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          className="h-full w-full animate-image-fade object-cover transition-transform duration-700 group-hover:scale-105"
         />
+        {hovered && product.images.length > 1 && (
+          <span className="absolute bottom-2 left-1/2 hidden -translate-x-1/2 gap-1 rounded-full bg-background/70 px-2 py-1 backdrop-blur-sm sm:flex">
+            {product.images.map((_, index) => (
+              <span
+                key={index}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-colors",
+                  index === activeImage ? "bg-primary" : "bg-foreground/40",
+                )}
+              />
+            ))}
+          </span>
+        )}
         {off > 0 && (
           <span className="absolute left-2 top-2 rounded bg-primary px-1.5 py-1 font-display text-[9px] uppercase text-primary-foreground sm:left-3 sm:top-3 sm:px-2 sm:text-[11px]">
             -{off}%
