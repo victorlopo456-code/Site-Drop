@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Heart, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,18 +12,39 @@ export function ProductCard({ product, className }: { product: Product; classNam
   const isFav = favorites.includes(product.id);
   const soldOut = isOutOfStock(product);
   const [hovered, setHovered] = useState(false);
+  const [visibleOnTouch, setVisibleOnTouch] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
+  const cardRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!hovered || product.images.length < 2) return;
-    const timer = window.setInterval(() => {
-      setActiveImage((current) => (current + 1) % product.images.length);
-    }, 1200);
+    const card = cardRef.current;
+    if (!card || !window.matchMedia("(hover: none)").matches) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setVisibleOnTouch(entry.isIntersecting && entry.intersectionRatio >= 0.6);
+        if (!entry.isIntersecting) setActiveImage(0);
+      },
+      { threshold: [0, 0.6] },
+    );
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if ((!hovered && !visibleOnTouch) || product.images.length < 2) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(
+      () => {
+        setActiveImage((current) => (current + 1) % product.images.length);
+      },
+      hovered ? 1200 : 1800,
+    );
     return () => window.clearInterval(timer);
-  }, [hovered, product.images.length]);
+  }, [hovered, visibleOnTouch, product.images.length]);
 
   return (
     <article
+      ref={cardRef}
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-card",
         className,
@@ -50,8 +71,8 @@ export function ProductCard({ product, className }: { product: Product; classNam
           height={800}
           className="h-full w-full animate-image-fade object-cover transition-transform duration-700 group-hover:scale-105"
         />
-        {hovered && product.images.length > 1 && (
-          <span className="absolute bottom-2 left-1/2 hidden -translate-x-1/2 gap-1 rounded-full bg-background/70 px-2 py-1 backdrop-blur-sm sm:flex">
+        {(hovered || visibleOnTouch) && product.images.length > 1 && (
+          <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-background/70 px-2 py-1 backdrop-blur-sm">
             {product.images.map((_, index) => (
               <span
                 key={index}
