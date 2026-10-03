@@ -5,6 +5,9 @@ import { verifyShippingQuote } from "@/lib/shipping";
 import { validateCouponInDatabase } from "@/lib/coupons";
 import { enforceRateLimit } from "@/lib/server-security";
 import { sendOrderEmail } from "@/lib/transactional-email";
+import { databaseProductPrice } from "@/lib/product-pricing";
+import { paymentMatchesOrder, shouldApplyPayment } from "@/lib/payment-security";
+import { allocateProductDiscount } from "@/lib/checkout-totals";
 
 const checkoutSchema = z.object({
   accessToken: z.string().min(20).max(10_000),
@@ -71,7 +74,9 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
     const uniqueIds = [...new Set(normalizedItems.map((item) => item.id))];
     const { data: products, error: productsError } = await supabase
       .from("products")
-      .select("id,sku,name,price,stock,variants,images,enabled,sold_out")
+      .select(
+        "id,sku,name,price,base_price,compare_at,promotion,stock,variants,images,enabled,sold_out",
+      )
       .in("id", uniqueIds);
     if (productsError) throw new Error("Não foi possível validar os produtos.");
     if (!products || products.length !== uniqueIds.length)
@@ -94,7 +99,7 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
         ? Math.max(0, Number(variant.stock) || 0)
         : Math.max(0, Number(product.stock) || 0);
       if (stock < item.qty) throw new Error(`Estoque insuficiente para ${product.name}.`);
-      return { product, variant, qty: item.qty, price: money(Number(product.price)) };
+      return { product, variant, qty: item.qty, price: databaseProductPrice(product) };
     });
 
     const subtotal = money(requested.reduce((sum, item) => sum + item.price * item.qty, 0));
@@ -122,9 +127,8 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
     const shippingCost = money(shipping.price);
     const orderId = crypto.randomUUID();
 
-    const discountFactor = subtotal > 0 ? (subtotal - requestedDiscount) / subtotal : 1;
-    const orderItems = requested.map(({ product, variant, qty, price }) => {
-      const unitPrice = money(price * discountFactor);
+    const discountedLines = allocateProductDiscount(requested, requestedDiscount);
+    const orderItems = requested.map(({ product, variant, qty }, index) => {
       const images = Array.isArray(product.images) ? product.images : [];
       return {
         order_id: orderId,
@@ -136,8 +140,8 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
         name: product.name,
         image_url: typeof images[0] === "string" ? images[0] : "",
         quantity: qty,
-        unit_price: unitPrice,
-        line_total: money(unitPrice * qty),
+        unit_price: discountedLines[index].unitPrice,
+        line_total: discountedLines[index].lineTotal,
       };
     });
     const discountedProductsTotal = money(
@@ -146,6 +150,8 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
     // Usa o mesmo arredondamento dos itens enviados ao Mercado Pago para não haver divergência de centavos.
     const discount = money(subtotal - discountedProductsTotal);
     const total = money(discountedProductsTotal + shippingCost);
+    if (total <= 0)
+      throw new Error("O valor final precisa ser maior que zero para pagar pelo Mercado Pago.");
 
     const { error: orderError } = await supabase.from("orders").insert({
       id: orderId,
@@ -189,13 +195,15 @@ export const createMercadoPagoCheckout = createServerFn({ method: "POST" })
       throw new Error("Não foi possível registrar os itens do pedido.");
     }
 
-    const preferenceItems = orderItems.map((item) => ({
-      id: item.product_id,
-      title: item.name,
-      quantity: item.quantity,
-      currency_id: "BRL",
-      unit_price: item.unit_price,
-    }));
+    const preferenceItems = orderItems.flatMap((item, index) =>
+      discountedLines[index].paymentParts.map((part, partIndex) => ({
+        id: `${item.product_id}:${item.variant_id ?? ""}:${partIndex}`,
+        title: item.name,
+        quantity: part.qty,
+        currency_id: "BRL",
+        unit_price: part.unitPrice,
+      })),
+    );
     if (shippingCost > 0) {
       preferenceItems.push({
         id: "shipping",
@@ -288,7 +296,7 @@ export const syncMercadoPagoPayment = createServerFn({ method: "POST" })
     await enforceRateLimit(supabase, auth.user.id, "payment-sync", 30, 10 * 60);
     const { data: order } = await supabase
       .from("orders")
-      .select("id,user_id,total")
+      .select("id,user_id,total,status,payment_status,mercado_pago_payment_id,stock_restored_at")
       .eq("id", data.orderId)
       .eq("user_id", auth.user.id)
       .maybeSingle();
@@ -306,12 +314,11 @@ export const syncMercadoPagoPayment = createServerFn({ method: "POST" })
       currency_id?: string;
       date_approved?: string;
     };
-    if (
-      payment.external_reference !== order.id ||
-      payment.currency_id !== "BRL" ||
-      Math.abs(Number(payment.transaction_amount) - Number(order.total)) > 0.01
-    ) {
+    if (!paymentMatchesOrder(payment, order)) {
       throw new Error("Os dados do pagamento não correspondem ao pedido.");
+    }
+    if (!shouldApplyPayment(payment, order)) {
+      return { status: order.status, paymentStatus: order.payment_status };
     }
     const statusMap: Record<string, string> = {
       rejected: "payment_rejected",
@@ -332,7 +339,9 @@ export const syncMercadoPagoPayment = createServerFn({ method: "POST" })
       await supabase
         .from("orders")
         .update({ fulfillment_status: stockApplied ? "preparing" : "stock_review" })
-        .eq("id", order.id);
+        .eq("id", order.id)
+        .eq("payment_status", "approved")
+        .in("fulfillment_status", ["waiting_payment", "stock_review"]);
       const { data: emailOrder } = await supabase
         .from("orders")
         .select(
@@ -348,7 +357,7 @@ export const syncMercadoPagoPayment = createServerFn({ method: "POST" })
     }
 
     const status = statusMap[payment.status] ?? "awaiting_payment";
-    await supabase
+    const { data: updatedOrders, error: updateError } = await supabase
       .from("orders")
       .update({
         status,
@@ -356,7 +365,24 @@ export const syncMercadoPagoPayment = createServerFn({ method: "POST" })
         mercado_pago_payment_id: String(payment.id),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", order.id);
+      .eq("id", order.id)
+      .eq("status", order.status)
+      .select("id");
+    if (updateError) throw new Error("Não foi possível atualizar o pagamento.");
+    if (!updatedOrders?.length) {
+      throw new Error("O pedido foi atualizado. Consulte o pagamento novamente.");
+    }
+    if (["refunded", "charged_back"].includes(payment.status)) {
+      const { error: stockError } = await supabase.rpc("restore_order_stock", {
+        p_order_id: order.id,
+      });
+      if (stockError) throw new Error("Reembolso recebido; o estoque precisa de revisão.");
+      const { error: refundError } = await supabase
+        .from("orders")
+        .update({ fulfillment_status: "refunded", refunded_at: new Date().toISOString() })
+        .eq("id", order.id);
+      if (refundError) throw new Error("Não foi possível atualizar o reembolso.");
+    }
     if (["rejected", "cancelled"].includes(payment.status)) {
       const { data: emailOrder } = await supabase
         .from("orders")

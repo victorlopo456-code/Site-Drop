@@ -35,3 +35,6 @@ dist-ssr
 .vercel
 .env*
 !.env.example
+
+# Supabase CLI metadata
+supabase/.temp/

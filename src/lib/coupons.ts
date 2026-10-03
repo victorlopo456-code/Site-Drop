@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireMfaAdmin } from "@/lib/server-security";
+import { requireMfaAdmin, enforcePublicRateLimit, enforceRateLimit } from "@/lib/server-security";
 
 export const couponSchema = z.object({
   id: z.string().uuid(),
@@ -85,30 +85,33 @@ export async function validateCouponInDatabase(
 
   const paidStatuses = ["payment_approved", "payment_approved_stock_error"];
   if (coupon.usage_limit) {
-    const { count } = await supabase
+    const { count, error: usageError } = await supabase
       .from("orders")
       .select("id", { count: "exact", head: true })
       .eq("coupon_code", coupon.code)
       .in("status", paidStatuses);
+    if (usageError) throw new Error("Não foi possível validar o uso do cupom.");
     if ((count ?? 0) >= coupon.usage_limit)
       throw new Error("O limite de uso deste cupom foi atingido.");
   }
   if (coupon.first_order_only || coupon.per_customer_limit) {
     if (!userId) throw new Error("Entre na sua conta para usar este cupom.");
-    const { count } = await supabase
+    const { count, error: customerError } = await supabase
       .from("orders")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .in("status", paidStatuses);
+    if (customerError) throw new Error("Não foi possível validar o uso do cupom.");
     if (coupon.first_order_only && (count ?? 0) > 0)
       throw new Error("Este cupom é válido somente na primeira compra.");
     if (coupon.per_customer_limit) {
-      const { count: couponUses } = await supabase
+      const { count: couponUses, error: customerUsageError } = await supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .eq("coupon_code", coupon.code)
         .in("status", paidStatuses);
+      if (customerUsageError) throw new Error("Não foi possível validar o uso do cupom.");
       if ((couponUses ?? 0) >= coupon.per_customer_limit)
         throw new Error("Você já atingiu o limite de uso deste cupom.");
     }
@@ -127,6 +130,8 @@ export const validateCoupon = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const supabase = serverClient();
     const userId = await getUserId(supabase, data.accessToken);
+    if (userId) await enforceRateLimit(supabase, userId, "coupon-validation", 30, 10 * 60);
+    else await enforcePublicRateLimit(supabase, "coupon-validation", 30, 10 * 60);
     const result = await validateCouponInDatabase(supabase, data.code, data.subtotal, userId);
     const { code, discount_type, discount_value, minimum_order, maximum_discount } = result.coupon;
     return {

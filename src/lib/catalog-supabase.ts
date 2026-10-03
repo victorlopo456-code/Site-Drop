@@ -3,6 +3,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { productPricing } from "@/lib/product-pricing";
 
 type ProductRow = {
   id: string;
@@ -103,15 +104,18 @@ function fromRow(row: ProductRow): Product | null {
     name: row.name,
     brand: row.brand,
     category: row.category,
-    price: Number(row.price),
-    basePrice: numberOrUndefined(row.base_price),
-    compareAt: numberOrUndefined(row.compare_at),
     rating: Number(row.rating),
     reviews: row.reviews,
     stock: row.stock,
     soldOut: Boolean(row.sold_out),
     variants,
     promotion,
+    ...productPricing({
+      price: Number(row.price),
+      basePrice: numberOrUndefined(row.base_price),
+      compareAt: numberOrUndefined(row.compare_at),
+      promotion,
+    }),
     images: row.images.map(decodeImageReference),
     description: row.description,
     specs,

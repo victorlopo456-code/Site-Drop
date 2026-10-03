@@ -1,7 +1,8 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export const PRODUCT_IMAGES_BUCKET = "product-images";
-export const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
+// Mantém o multipart abaixo do limite de corpo das funções da Vercel.
+export const MAX_PRODUCT_IMAGE_SIZE = 4 * 1024 * 1024;
 export const PRODUCT_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
 
 const extensionByType: Record<string, string> = {
@@ -14,23 +15,31 @@ export async function uploadProductImage(file: File): Promise<string> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) throw new Error("Supabase não está configurado.");
   if (!extensionByType[file.type]) throw new Error("Use uma imagem JPG, PNG ou WebP.");
-  if (file.size > MAX_PRODUCT_IMAGE_SIZE) throw new Error("A imagem deve ter no máximo 5 MB.");
+  if (file.size > MAX_PRODUCT_IMAGE_SIZE) throw new Error("A imagem deve ter no máximo 4 MB.");
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("Entre novamente com a conta administradora.");
+  const [{ data: auth }, { data: session }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.auth.getSession(),
+  ]);
+  if (!auth.user || !session.session?.access_token) {
+    throw new Error("Entre novamente com a conta administradora.");
+  }
 
-  const extension = extensionByType[file.type];
-  const unique = crypto.randomUUID();
-  const path = `${auth.user.id}/${Date.now()}-${unique}.${extension}`;
-  const { error } = await supabase.storage.from(PRODUCT_IMAGES_BUCKET).upload(path, file, {
-    cacheControl: "31536000",
-    contentType: file.type,
-    upsert: false,
+  const form = new FormData();
+  form.set("image", file, file.name);
+  const response = await fetch("/api/admin/product-image", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.session.access_token}` },
+    body: form,
   });
-  if (error) throw new Error(error.message);
-
-  const { data } = supabase.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  const result = (await response.json().catch(() => null)) as {
+    url?: string;
+    error?: string;
+  } | null;
+  if (!response.ok || !result?.url) {
+    throw new Error(result?.error || "Não foi possível enviar a imagem.");
+  }
+  return result.url;
 }
 
 export function productImagePath(publicUrl: string): string | null {

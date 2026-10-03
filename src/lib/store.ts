@@ -13,6 +13,8 @@ import {
   updateProductInSupabase,
 } from "@/lib/catalog-supabase";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { isPromotionActive, productPricing } from "@/lib/product-pricing";
+export { isPromotionActive } from "@/lib/product-pricing";
 
 let current: Product[] = applySchedules(baseProducts);
 let hydrated = false;
@@ -38,31 +40,20 @@ async function hydrateRemote() {
   }
 }
 
-export function isPromotionActive(promo: Promotion | undefined, now = new Date()) {
-  if (!promo || !promo.percent) return false;
-  const day = now.toISOString().slice(0, 10);
-  if (promo.start && day < promo.start) return false;
-  if (promo.end && day > promo.end) return false;
-  return true;
-}
-
 function applySchedules(list: Product[], now = new Date()): Product[] {
   return list.map((product) => {
-    const base = product.basePrice ?? product.compareAt ?? product.price;
+    const pricing = productPricing(product, now);
     const tags = product.tags.filter((tag) => tag !== "promocoes");
     const stock = totalStock(product);
     if (isPromotionActive(product.promotion, now)) {
-      const percent = Math.min(Math.max(product.promotion!.percent, 1), 90);
       return {
         ...product,
-        basePrice: base,
-        price: Number((base * (1 - percent / 100)).toFixed(2)),
-        compareAt: base,
+        ...pricing,
         stock,
         tags: [...tags, "promocoes"] as Product["tags"],
       };
     }
-    return { ...product, basePrice: base, price: base, compareAt: undefined, stock, tags };
+    return { ...product, ...pricing, stock, tags };
   });
 }
 

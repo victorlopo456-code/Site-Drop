@@ -1,45 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 import { sendOrderEmail } from "@/lib/transactional-email";
-
-function hex(buffer: ArrayBuffer) {
-  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function safeEqual(left: string, right: string) {
-  if (left.length !== right.length) return false;
-  let difference = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  }
-  return difference === 0;
-}
-
-async function validSignature(request: Request, dataId: string, secret: string) {
-  const signature = request.headers.get("x-signature") ?? "";
-  const requestId = request.headers.get("x-request-id") ?? "";
-  const parts = Object.fromEntries(
-    signature.split(",").map((part) => {
-      const [key, ...value] = part.trim().split("=");
-      return [key, value.join("=")];
-    }),
-  );
-  if (!parts.ts || !parts.v1 || !requestId || !dataId) return false;
-  const timestamp = Number(parts.ts);
-  if (!Number.isInteger(timestamp)) return false;
-  // Impede que uma notificação assinada e capturada seja repetida muito tempo depois.
-  if (Math.abs(Date.now() - timestamp * 1_000) > 5 * 60 * 1_000) return false;
-  const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${parts.ts};`;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
-  return safeEqual(hex(digest), parts.v1.toLowerCase());
-}
+import { paymentMatchesOrder, shouldApplyPayment } from "@/lib/payment-security";
+import { validMercadoPagoSignature } from "@/lib/webhook-signature";
+import { readLimitedBody, RequestBodyTooLarge } from "@/lib/request-body";
 
 export const Route = createFileRoute("/api/mercado-pago/webhook")({
   server: {
@@ -55,22 +19,24 @@ export const Route = createFileRoute("/api/mercado-pago/webhook")({
 
         let body: { type?: string; data?: { id?: string | number } } = {};
         try {
-          const contentLength = Number(request.headers.get("content-length") ?? 0);
-          if (contentLength > 32_768) {
-            return Response.json({ error: "Requisição muito grande" }, { status: 413 });
-          }
-          const rawBody = await request.text();
-          if (rawBody.length > 32_768) {
-            return Response.json({ error: "Requisição muito grande" }, { status: 413 });
-          }
+          const rawBody = new TextDecoder().decode(await readLimitedBody(request, 32_768));
           body = JSON.parse(rawBody) as typeof body;
-        } catch {
+          if (!body || typeof body !== "object" || Array.isArray(body)) {
+            return Response.json({ error: "JSON inválido" }, { status: 400 });
+          }
+        } catch (error) {
+          if (error instanceof RequestBodyTooLarge) {
+            return Response.json({ error: "Requisição muito grande" }, { status: 413 });
+          }
           return Response.json({ error: "JSON inválido" }, { status: 400 });
         }
         if (body.type !== "payment") return Response.json({ received: true });
         const url = new URL(request.url);
         const dataId = url.searchParams.get("data.id") ?? String(body.data?.id ?? "");
-        if (!(await validSignature(request, dataId, webhookSecret))) {
+        if (!/^\d{1,40}$/.test(dataId)) {
+          return Response.json({ error: "Identificador inválido" }, { status: 400 });
+        }
+        if (!(await validMercadoPagoSignature(request, dataId, webhookSecret))) {
           return Response.json({ error: "Assinatura inválida" }, { status: 401 });
         }
 
@@ -94,16 +60,14 @@ export const Route = createFileRoute("/api/mercado-pago/webhook")({
         });
         const { data: order } = await supabase
           .from("orders")
-          .select("id,total")
+          .select("id,total,status,payment_status,mercado_pago_payment_id,stock_restored_at")
           .eq("id", payment.external_reference)
           .maybeSingle();
         if (!order) return Response.json({ received: true });
-        if (
-          payment.currency_id !== "BRL" ||
-          Math.abs(Number(payment.transaction_amount) - Number(order.total)) > 0.01
-        ) {
+        if (!paymentMatchesOrder(payment, order)) {
           return Response.json({ error: "Valor divergente" }, { status: 409 });
         }
+        if (!shouldApplyPayment(payment, order)) return Response.json({ received: true });
 
         const statusMap: Record<string, string> = {
           rejected: "payment_rejected",
@@ -124,9 +88,11 @@ export const Route = createFileRoute("/api/mercado-pago/webhook")({
           await supabase
             .from("orders")
             .update({ fulfillment_status: stockApplied ? "preparing" : "stock_review" })
-            .eq("id", order.id);
+            .eq("id", order.id)
+            .eq("payment_status", "approved")
+            .in("fulfillment_status", ["waiting_payment", "stock_review"]);
         } else {
-          await supabase
+          const { data: updatedOrders, error: updateError } = await supabase
             .from("orders")
             .update({
               status: statusMap[payment.status] ?? "awaiting_payment",
@@ -134,7 +100,14 @@ export const Route = createFileRoute("/api/mercado-pago/webhook")({
               mercado_pago_payment_id: String(payment.id),
               updated_at: new Date().toISOString(),
             })
-            .eq("id", order.id);
+            .eq("id", order.id)
+            .eq("status", order.status)
+            .select("id");
+          if (updateError)
+            return Response.json({ error: "Falha ao atualizar pagamento" }, { status: 500 });
+          if (!updatedOrders?.length) {
+            return Response.json({ error: "Pedido atualizado; tente novamente" }, { status: 409 });
+          }
           if (payment.status === "refunded" || payment.status === "charged_back") {
             const { error: restoreError } = await supabase.rpc("restore_order_stock", {
               p_order_id: order.id,

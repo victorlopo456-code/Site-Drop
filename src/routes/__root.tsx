@@ -9,6 +9,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { setNonce } from "get-nonce";
 import { Analytics } from "@vercel/analytics/react";
 
 import appCss from "../styles.css?url";
@@ -101,6 +102,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "DROP Skate Shop" },
       { name: "description", content: "Skate, streetwear e lifestyle urbano." },
+      {
+        name: "google-site-verification",
+        content: "zIRthofKWdGfa9V5Hx4tkCstpQZVi_D93O4T3G0egFg",
+      },
       { name: "theme-color", content: "#f97316" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -145,6 +150,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    const nonce = document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce;
+    if (nonce) setNonce(nonce);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

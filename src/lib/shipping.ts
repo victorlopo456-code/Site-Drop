@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { enforceRateLimit } from "@/lib/server-security";
+import { enforceRateLimit, enforcePublicRateLimit } from "@/lib/server-security";
+import { databaseProductPrice } from "@/lib/product-pricing";
 
 const itemsSchema = z
   .array(
@@ -158,13 +159,17 @@ export const quoteShipping = createServerFn({ method: "POST" })
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const auth = data.accessToken ? await supabase.auth.getUser(data.accessToken) : null;
+    if (auth?.error) throw new Error("Sessão inválida ou expirada.");
+    if (!auth?.data.user) await enforcePublicRateLimit(supabase, "shipping-quote", 60, 10 * 60);
     const rateLimitKey = auth?.data.user?.id ?? `visitor:${data.visitorId}`;
     await enforceRateLimit(supabase, rateLimitKey, "shipping-quote", 30, 10 * 60);
 
     const ids = [...new Set(data.items.map((item) => item.id))];
     const { data: products, error } = await supabase
       .from("products")
-      .select("id,name,price,weight_kg,width_cm,height_cm,length_cm,enabled,sold_out")
+      .select(
+        "id,name,price,base_price,compare_at,promotion,weight_kg,width_cm,height_cm,length_cm,enabled,sold_out",
+      )
       .in("id", ids);
     if (error || !products || products.length !== ids.length) {
       throw new Error("Não foi possível preparar a cotação dos produtos.");
@@ -176,7 +181,7 @@ export const quoteShipping = createServerFn({ method: "POST" })
         const product = byId.get(item.id);
         if (!product || !product.enabled || product.sold_out)
           throw new Error("Produto indisponível.");
-        return sum + Number(product.price) * item.qty;
+        return sum + databaseProductPrice(product) * item.qty;
       }, 0),
     );
     const fingerprint = itemFingerprint(data.items);
@@ -248,7 +253,7 @@ export const quoteShipping = createServerFn({ method: "POST" })
             height: Number(product.height_cm),
             length: Number(product.length_cm),
             weight: Number(product.weight_kg),
-            insurance_value: money(Number(product.price)),
+            insurance_value: databaseProductPrice(product),
             quantity: item.qty,
           };
         }),

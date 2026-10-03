@@ -12,6 +12,7 @@ import { couponDiscount, validateCoupon, type CouponApplication } from "@/lib/co
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { syncRecoveryCart } from "@/lib/customer-marketing";
+import { useProducts } from "@/lib/store";
 
 export type CartItem = {
   id: string;
@@ -113,6 +114,7 @@ function readCart(): CartItem[] {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const products = useProducts();
   const [items, setItems] = useState<CartItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [coupon, setCoupon] = useState<string | null>(null);
@@ -125,6 +127,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setFavorites(readStringArray("drop-favorites"));
     setRecoveryEmail(localStorage.getItem("drop-cart-email") ?? "");
   }, []);
+
+  useEffect(() => {
+    const byId = new Map(products.map((product) => [product.id, product]));
+    setItems((current) => {
+      let changed = false;
+      const next = current.map((item) => {
+        const product = byId.get(item.productId);
+        if (!product || product.price === item.price) return item;
+        changed = true;
+        return { ...item, price: product.price };
+      });
+      return changed ? next : current;
+    });
+  }, [products]);
 
   useEffect(() => {
     try {
@@ -226,7 +242,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    setItems([]);
+    setCoupon(null);
+    setCouponRule(null);
+  }, []);
 
   const subtotal = useMemo(() => items.reduce((acc, i) => acc + i.price * i.qty, 0), [items]);
 

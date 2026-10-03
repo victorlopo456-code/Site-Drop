@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { enforceRateLimit, requireMfaAdmin } from "@/lib/server-security";
+import { enforceRateLimit, enforcePublicRateLimit, requireMfaAdmin } from "@/lib/server-security";
 
 const attributionSchema = z.object({
   sessionId: z.string().uuid(),
@@ -28,6 +28,7 @@ export const recordAnalyticsEvent = createServerFn({ method: "POST" })
   .validator(eventSchema)
   .handler(async ({ data }) => {
     const supabase = serverClient();
+    await enforcePublicRateLimit(supabase, "analytics", 360, 60 * 60);
     await enforceRateLimit(supabase, data.sessionId, "analytics", 120, 60 * 60);
     const { error } = await supabase.rpc("record_analytics_event", {
       p_session_id: data.sessionId,

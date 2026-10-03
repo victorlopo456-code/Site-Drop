@@ -1,0 +1,16 @@
+# Local secrets, tools and generated output must not be uploaded as source.
+.git/
+.vercel/
+.agents/
+.codex/
+.aws/
+.env*
+node_modules/
+dist/
+dist-ssr/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+supabase/.temp/
+*.log

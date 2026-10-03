@@ -93,7 +93,16 @@ export async function loadAdminOrders(): Promise<AdminOrder[]> {
     .select("*,order_items(*)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as AdminOrder[];
+  const orders = (data ?? []) as AdminOrder[];
+  const { data: notes, error: notesError } = await supabase
+    .from("order_admin_notes")
+    .select("order_id,notes");
+  if (notesError) {
+    if (["42P01", "PGRST205"].includes(notesError.code)) return orders;
+    throw new Error("Não foi possível carregar as notas internas.");
+  }
+  const notesByOrder = new Map((notes ?? []).map((note) => [note.order_id, note.notes]));
+  return orders.map((order) => ({ ...order, admin_notes: notesByOrder.get(order.id) ?? null }));
 }
 
 export async function loadCustomerOrders(): Promise<AdminOrder[]> {
@@ -146,12 +155,23 @@ export async function updateAdminOrder(
   ) {
     throw new Error("Informe o código de rastreio antes de marcar o pedido como enviado.");
   }
+  const { error: notesTableError } = await supabase
+    .from("order_admin_notes")
+    .select("order_id")
+    .limit(0);
+  const privateNotesAvailable = !notesTableError;
+  if (notesTableError && !["42P01", "PGRST205"].includes(notesTableError.code))
+    throw new Error("Não foi possível verificar as notas internas. Nenhuma alteração foi salva.");
+  if (!privateNotesAvailable && patch.admin_notes.trim() !== (order.admin_notes ?? "").trim())
+    throw new Error(
+      "A edição de notas internas depende da migration de segurança do banco. Nenhuma alteração foi salva.",
+    );
   const now = new Date().toISOString();
   const update = {
     ...patch,
     carrier: storePickup ? null : patch.carrier.trim() || null,
     tracking_code: storePickup ? null : patch.tracking_code.trim() || null,
-    admin_notes: patch.admin_notes.trim() || null,
+    admin_notes: privateNotesAvailable ? null : undefined,
     shipped_at:
       patch.fulfillment_status === "shipped" || patch.fulfillment_status === "delivered"
         ? (order.shipped_at ?? now)
@@ -162,6 +182,17 @@ export async function updateAdminOrder(
   };
   const { error } = await supabase.from("orders").update(update).eq("id", order.id);
   if (error) throw new Error(error.message);
+  if (privateNotesAvailable) {
+    const { error: notesError } = await supabase.from("order_admin_notes").upsert({
+      order_id: order.id,
+      notes: patch.admin_notes.trim() || null,
+      updated_at: now,
+    });
+    if (notesError)
+      throw new Error(
+        "Pedido salvo, mas não foi possível salvar as notas internas. Verifique a migration de segurança.",
+      );
+  }
   const { data: auth } = await supabase.auth.getUser();
   const { error: eventError } = await supabase.from("order_events").insert({
     order_id: order.id,

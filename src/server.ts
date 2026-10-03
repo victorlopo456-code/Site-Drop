@@ -2,12 +2,21 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { trustedStyleHashes } from "./lib/csp-style-hashes";
 
 type ServerEntry = {
-  fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
+  fetch: (
+    request: Request,
+    options?: { context?: { nonce?: string } },
+  ) => Promise<Response> | Response;
 };
 
-function withSecurityHeaders(request: Request, response: Response): Response {
+function createNonce() {
+  const bytes = crypto.getRandomValues(new Uint8Array(18));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function withSecurityHeaders(request: Request, response: Response, nonce: string): Response {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
@@ -25,8 +34,9 @@ function withSecurityHeaders(request: Request, response: Response): Response {
       "object-src 'none'",
       "frame-ancestors 'none'",
       "form-action 'self'",
-      "script-src 'self' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      `script-src 'self' 'nonce-${nonce}'`,
+      `style-src-elem 'self' 'nonce-${nonce}' ${trustedStyleHashes.join(" ")} https://fonts.googleapis.com`,
+      "style-src-attr 'unsafe-inline'",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://viacep.com.br",
@@ -42,7 +52,12 @@ function withSecurityHeaders(request: Request, response: Response): Response {
   }
 
   const pathname = new URL(request.url).pathname;
-  if (["/admin", "/conta", "/checkout", "/entrar"].includes(pathname)) {
+  if (
+    request.method !== "GET" ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_serverFn/") ||
+    ["/admin", "/conta", "/checkout", "/entrar", "/pagamento"].includes(pathname)
+  ) {
     headers.set("Cache-Control", "no-store");
   }
 
@@ -91,11 +106,15 @@ function isH3SwallowedErrorBody(body: string): boolean {
 }
 
 export default {
-  async fetch(request: Request, env: unknown, ctx: unknown) {
+  async fetch(request: Request) {
+    const nonce = createNonce();
     try {
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return withSecurityHeaders(request, await normalizeCatastrophicSsrResponse(response));
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-drop-csp-nonce", nonce);
+      const securedRequest = new Request(request, { headers: requestHeaders });
+      const response = await handler.fetch(securedRequest, { context: { nonce } });
+      return withSecurityHeaders(request, await normalizeCatastrophicSsrResponse(response), nonce);
     } catch (error) {
       console.error(error);
       return withSecurityHeaders(
@@ -104,6 +123,7 @@ export default {
           status: 500,
           headers: { "content-type": "text/html; charset=utf-8" },
         }),
+        nonce,
       );
     }
   },
