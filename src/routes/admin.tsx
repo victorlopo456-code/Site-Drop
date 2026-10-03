@@ -2327,6 +2327,9 @@ function PromoRow({ product }: { product: Product }) {
         <div>
           <p className="font-display uppercase">{product.name}</p>
           <p className="text-xs text-muted-foreground">
+            SKU: <span className="break-all font-mono">{product.sku}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
             {formatBRL(product.price)}
             {product.compareAt ? ` · de ${formatBRL(product.compareAt)}` : ""}
           </p>
