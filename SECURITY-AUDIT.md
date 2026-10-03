@@ -2,9 +2,9 @@
 
 Foram revisados o código da aplicação, as migrations do Supabase, as dependências, as páginas públicas em produção e os endpoints acessíveis sem autenticação. As correções da aplicação foram enviadas à branch `main` no commit `202434d` e publicadas em https://drop-skate-shop.vercel.app, deployment `dpl_H9wQaMYianqwdZQj96DgX78tePQE` (READY).
 
-**A migration do banco real ainda está pendente.** Não há conexão PostgreSQL nem credencial da API administrativa do Supabase disponíveis nesta sessão. A chave `service_role` permite acesso aos dados, mas não executar DDL. A consulta de existência da tabela `order_admin_notes` retornou `404/PGRST205`, confirmando que ela ainda não foi criada. As proteções de RLS, triggers e reserva concorrente de cupons descritas abaixo foram testadas em PostgreSQL temporário e só estarão ativas no banco real após executar `supabase/migrations/20261003010000_audit_access_controls.sql` no SQL Editor do projeto, depois de fazer backup.
+**Migration aplicada pelo usuário no SQL Editor do Supabase**, com execução bem-sucedida informada nesta sessão. As verificações posteriores no banco real confirmaram: tabela `order_admin_notes` disponível (HTTP 200), nenhum pedido com `admin_notes` preenchido no campo antigo (contagem exata 0) e acesso anônimo às notas privadas recusado (HTTP 401, código `42501`). O arquivo aplicado é `supabase/migrations/20261003010000_audit_access_controls.sql`.
 
-Enquanto isso, o painel preserva notas antigas ao atualizar o andamento dos pedidos e recusa alterações de notas antes de qualquer gravação. A restrição de leitura das notas antigas pelo cliente depende da migration; essa vulnerabilidade não foi resolvida apenas pela publicação da aplicação.
+O painel publicado passa a usar a tabela privada de notas sem exigir novo deploy. Os testes de policies, triggers e reservas concorrentes passaram anteriormente em PostgreSQL temporário; essas regras não foram reexercitadas com contas reais ou alterações de pedidos em produção.
 
 ## Falhas confirmadas e correções preparadas
 
