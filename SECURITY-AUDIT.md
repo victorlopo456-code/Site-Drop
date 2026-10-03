@@ -1,6 +1,10 @@
 # Auditoria do site DROP — 03/10/2026
 
-Foram revisados o código da aplicação, as migrations do Supabase, as dependências, as páginas públicas em produção e os endpoints acessíveis sem autenticação. As correções estão no workspace; **não foram publicadas em produção nem aplicadas ao banco real**. Foi criada uma prévia separada na Vercel para validar a compilação.
+Foram revisados o código da aplicação, as migrations do Supabase, as dependências, as páginas públicas em produção e os endpoints acessíveis sem autenticação. As correções da aplicação foram enviadas à branch `main` no commit `202434d` e publicadas em https://drop-skate-shop.vercel.app, deployment `dpl_H9wQaMYianqwdZQj96DgX78tePQE` (READY).
+
+**A migration do banco real ainda está pendente.** Não há conexão PostgreSQL nem credencial da API administrativa do Supabase disponíveis nesta sessão. A chave `service_role` permite acesso aos dados, mas não executar DDL. A consulta de existência da tabela `order_admin_notes` retornou `404/PGRST205`, confirmando que ela ainda não foi criada. As proteções de RLS, triggers e reserva concorrente de cupons descritas abaixo foram testadas em PostgreSQL temporário e só estarão ativas no banco real após executar `supabase/migrations/20261003010000_audit_access_controls.sql` no SQL Editor do projeto, depois de fazer backup.
+
+Enquanto isso, o painel preserva notas antigas ao atualizar o andamento dos pedidos e recusa alterações de notas antes de qualquer gravação. A restrição de leitura das notas antigas pelo cliente depende da migration; essa vulnerabilidade não foi resolvida apenas pela publicação da aplicação.
 
 ## Falhas confirmadas e correções preparadas
 
@@ -24,6 +28,8 @@ A prioridade representa o impacto observado no código e nos testes locais, não
 
 ## Verificações realizadas
 
+- Após a publicação do commit `202434d`, as **20 verificações de páginas em produção** passaram em desktop/celular, sem erros de JavaScript, imagens quebradas ou largura excedente. O carrinho também passou nas duas larguras. A primeira rodada sofreu timeouts e erros de conexão HTTP/2 no navegador local; a repetição com HTTP/1.1 passou nas mesmas rotas. Isso não demonstra ausência de problemas HTTP/2 em outros ambientes.
+
 - `npm audit --json --package-lock-only`: **0 vulnerabilidades conhecidas** no lockfile auditado. Isso não comprova ausência de vulnerabilidades ainda não catalogadas.
 - Versões instaladas sincronizadas com o lockfile: `@tanstack/react-start@1.168.60` e `@tanstack/start-server-core@1.169.39`.
 - **7 testes automatizados** de preços, pagamentos, assinaturas, limites de corpo e cálculo exato de cupons passaram.
@@ -33,10 +39,10 @@ A prioridade representa o impacto observado no código e nos testes locais, não
 - **20 verificações adicionais no navegador sobre o build corrigido local** passaram nas mesmas páginas e larguras, sem erros de JavaScript, bloqueios de estilos, imagens quebradas ou largura excedendo a tela. As ações de abrir carrinho, adicionar, aumentar, diminuir e remover itens também passaram em desktop e celular.
 - **12 rotas HTTP** em produção responderam 200, incluindo robots, sitemap e service worker. Páginas HTML tinham CSP; login, admin, conta e checkout tinham `Cache-Control: no-store`.
 - Consultas com a chave pública, sem usuário, a 10 tabelas privadas não retornaram registros. Algumas tabelas recusaram a consulta com erro de permissão; outras retornaram lista vazia. Lista vazia isoladamente não comprova todas as regras de acesso.
-- Os dois endpoints de tarefas agendadas recusaram chamadas sem segredo com HTTP 401. O webhook recusou pagamento sem assinatura com 401 e confirmou o erro 500 para JSON `null` na versão publicada.
+- Após a publicação, os dois endpoints de tarefas agendadas recusaram chamadas sem segredo com HTTP 401. O webhook recusou pagamento sem assinatura com 401 e passou a responder 400 para JSON `null`, corrigindo o erro 500 anterior.
 - `.env.local` não está versionado; apenas `.env.example` aparece entre arquivos de ambiente rastreados. Busca de padrões comuns de chaves privadas/tokens em `src`, `public` e `supabase` não encontrou correspondências.
 - `.vercelignore` agora exclui explicitamente arquivos de ambiente, configurações locais sensíveis, diretórios temporários do Supabase e artefatos gerados dos uploads de código.
-- TypeScript e build local passaram após as correções. A compilação de uma prévia na Vercel também passou; a produção não foi substituída.
+- TypeScript, build local e compilação de produção na Vercel passaram após as correções.
 - O lint completo tinha pendências preexistentes de formatação e avisos de React. A auditoria não reformata indiscriminadamente arquivos fora das correções. Os arquivos alterados foram formatados.
 - Lint direcionado aos arquivos das correções passou sem erros; `cart.tsx` mantém um aviso preexistente sobre Fast Refresh.
 
